@@ -1,14 +1,21 @@
-use crate::core::card::Card;
+use crate::core::{card::Card, state::GameState, EngineError};
 
-pub trait Player {
-    fn cards(&self) -> (Card, Card);
-    fn cash(&self) -> i32;
+pub type PlayerHand = (Card, Card);
+
+pub trait Player: std::fmt::Debug {
+    fn cards(&self) -> Option<PlayerHand>;
+    fn give_cards(&mut self, hand: PlayerHand);
+
+    fn blind(&mut self, state: &GameState, i: usize) -> Result<PlayerAction, EngineError>;
+
+    fn play(&mut self, state: &GameState, i: usize) -> Result<PlayerAction, EngineError>;
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub enum PlayerAction {
-    /// Folds the current hand.
     Fold,
-    /// Bets the specified amount of money.
-    Bet(i32),
+    Raise(i32),
+    Call(i32),
 }
+
+pub mod dummy;

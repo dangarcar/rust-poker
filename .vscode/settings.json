@@ -1,0 +1,5 @@
+{
+    "lldb.adapterEnv": {
+        "RUST_LOG": "poker"
+    }
+}

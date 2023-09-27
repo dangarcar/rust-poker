@@ -4,6 +4,8 @@ use itertools::Itertools;
 
 use crate::core::card::*;
 
+use super::EngineError;
+
 #[derive(PartialOrd, Ord, Eq, Debug, Clone, Copy, Hash)]
 pub enum Rank {
     ///The highest card in the hand
@@ -50,9 +52,9 @@ impl PartialEq for Rank {
 
 pub trait Rankable {
     ///A copy of the cards of error if vector is empty
-    fn cards(&self) -> Result<Vec<Card>, String>;
+    fn cards(&self) -> Result<Vec<Card>, EngineError>;
 
-    fn rank(&self) -> Result<Rank, String> {
+    fn rank(&self) -> Result<Rank, EngineError> {
         let mut cards = self.cards()?;
 
         if let Some(a) = rank_straight_flush(&mut cards){ //Straight flush returns also a flush if there isn't any straights
@@ -78,7 +80,7 @@ pub trait Rankable {
         }
         else{
             cards.sort_by_key(|c| c.value);
-            let highest = cards.pop().ok_or("Cannot get the highest card in the hand")?;
+            let highest = cards.pop().ok_or(EngineError::HighestCardNotAvailable)?;
             Ok(Rank::HighCard(highest.value))
         }
     }

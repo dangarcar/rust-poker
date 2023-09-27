@@ -1,6 +1,8 @@
 use crate::core::card::*;
 use crate::core::rank;
 
+use super::EngineError;
+
 pub struct Hand {
     cards: Vec<Card>
 }
@@ -20,9 +22,9 @@ impl Hand {
 }
 
 impl rank::Rankable for Hand {
-    fn cards(&self) -> Result<Vec<Card>, String> {
+    fn cards(&self) -> Result<Vec<Card>, EngineError> {
         if self.cards.len() < 5 {
-            Err("The hand must have more than 5 cards".to_string())
+            Err(EngineError::SmallHandError)
         }
         else {
             Ok(self.cards.clone())

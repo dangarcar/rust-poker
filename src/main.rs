@@ -1,16 +1,20 @@
-use poker::core::deck;
+use std::{time, thread};
+
+use poker::core::deck::Deck;
 use poker::graphic;
 
 extern crate sdl2;
 
 use poker::graphic::renderer::CARD_SPRITE_RATIO;
-
 use sdl2::image::LoadTexture;
 use sdl2::pixels::Color;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::rect::Rect;
 
 fn main() {
+    env_logger::init();
+
     let context = graphic::GraphicContext::new();
 
     let mut canvas = context.canvas;
@@ -21,7 +25,7 @@ fn main() {
 
     let mut event_pump = context.event_pump;
 
-    let mut deck = deck::Deck::new();
+    let mut deck = Deck::default();
 
     'running: loop {
         canvas.set_draw_color(Color::RGB(4, 125, 58));
@@ -37,7 +41,7 @@ fn main() {
             }
         }
 
-        /*let mut x = 100;
+        let mut x = 100;
         let mut y = 100;
 
         if deck.len() > 0 {
@@ -50,10 +54,10 @@ fn main() {
             let card = deck.take();
             let dst = Rect::new(500, 100, 200, (200 as f32 *CARD_SPRITE_RATIO) as u32);
             graphic::renderer::render_card(&mut canvas, &texture[0], &card, dst).unwrap();
-        }*/
+        }
 
         canvas.present();
 
-        //thread::sleep(time::Duration::from_millis(250));
+        thread::sleep(time::Duration::from_millis(250));
     }
 }

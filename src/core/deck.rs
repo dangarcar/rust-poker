@@ -10,12 +10,29 @@ pub struct Deck {
 
 impl Deck {
     ///Returns a new shuffled deck
-    pub fn new() -> Self {
+    pub fn default() -> Self {
         let mut v = Vec::new();
 
         for suit in card::SUITS {
             for value in card::VALUES {
                 v.push(card::Card{ suit, value });
+            }
+        }
+
+        v.shuffle(&mut thread_rng());
+
+        Deck { cards: v }
+    }
+
+    pub fn new_without_cards(cards: &[card::Card]) -> Self {
+        let mut v = Vec::new();
+
+        for suit in card::SUITS {
+            for value in card::VALUES {
+                let c = card::Card{ suit, value };
+                if !cards.contains(&c) {
+                    v.push(c);
+                }
             }
         }
 
@@ -31,5 +48,22 @@ impl Deck {
 
     pub fn len(&self) -> usize {
         self.cards.len()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::core::card::Card;
+
+    use super::Deck;
+
+    #[test]
+    fn cards() {
+        let c = vec![
+            Card{suit:crate::core::card::Suit::Club, value:crate::core::card::Value::Ace}, 
+            Card{suit:crate::core::card::Suit::Diamond, value:crate::core::card::Value::Ace}
+        ];
+        let deck = Deck::new_without_cards(&c);
+        println!("{:?}", deck);
     }
 }
