@@ -1,4 +1,3 @@
-use log::debug;
 use rand::{thread_rng, Rng};
 
 use crate::core::{state::GameState, EngineError};
@@ -25,7 +24,6 @@ impl Player for DummyPlayer {
         let diff = state.bet_amount - my_bet; //The amount to raise
 
         if rng.gen_bool(FOLD_PROB) {
-            debug!("Player {i} folded with cards {:?}", self.hand);
             return Ok(PlayerAction::Fold);
         }
         else if rng.gen_bool(RAISE_PROB) && cash > diff {
@@ -33,11 +31,9 @@ impl Player for DummyPlayer {
             let delta = std::cmp::min(cash-diff, MAX_BET) as f64 * x*x*x;
             let raised = if delta <= 1.0 {1} else {delta as i32};
 
-            debug!("Player {i} raised {raised} with cards {:?}", self.hand);
             Ok(PlayerAction::Raise(diff + raised))
         }
         else {
-            debug!("Player {i} called {} with cards {:?}", diff, self.hand);
             Ok(PlayerAction::Call(diff))
         }
     }
@@ -56,11 +52,9 @@ impl Player for DummyPlayer {
         let fold = (self.hand.unwrap().0.value as i32 + self.hand.unwrap().1.value as i32) < 10;
 
         if fold || cash < state.bet_amount {
-            debug!("Player {i} folded with cards {:?}", self.hand);
             return Ok(PlayerAction::Fold);
         }
         else {
-            debug!("Player {i} called {} with cards {:?}", state.bet_amount, self.hand);
             Ok(PlayerAction::Call(state.bet_amount))
         }
     }

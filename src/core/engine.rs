@@ -1,3 +1,5 @@
+use log::warn;
+
 use crate::core::card::*;
 use crate::core::hand::Hand;
 use crate::core::rank::Rank;
@@ -7,11 +9,13 @@ use crate::core::deck::*;
 use crate::core::state::*;
 
 use super::EngineError;
-
-use log::debug;
+use super::action::GameActionQueue;
+use super::action::GameMessage;
+use super::action::game_action::GameAction;
 
 #[derive(Debug)]
 pub struct Engine {
+    action_queue: Box<dyn GameActionQueue>,
     deck: Deck,
     pub state: GameState,
     pub players_hands: Vec<(Card, Card)>,
@@ -19,7 +23,7 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(players: Vec<Box<dyn Player>>) -> Result<Self, EngineError> {
+    pub fn new(players: Vec<Box<dyn Player>>, action_queue: Box<dyn GameActionQueue>) -> Result<Self, EngineError> {
         let deck = Deck::default();
         let players_hands = Vec::new();
 
@@ -36,6 +40,7 @@ impl Engine {
         };
 
         Ok(Engine { 
+            action_queue,
             deck, 
             state, 
             players_hands,
@@ -53,7 +58,7 @@ impl Engine {
         loop {
             match self.state.round {
                 Round::Starting => self.start()?,
-                Round::Preflop => self.preflop()?,
+                Round::Preflop => self.preflop(0)?,
                 Round::Flop => self.flop()?,
                 Round::Turn => self.turn()?,
                 Round::River => self.river()?,
@@ -64,46 +69,8 @@ impl Engine {
         }
     }
 
-    pub fn run_from_game_state(state: GameState, players: Vec<Box<dyn Player>>, hand: PlayerHand, player_idx: usize) -> Result<Vec<i32>, EngineError> {
-        let deck = Deck::new_without_cards(&[hand.0, hand.1]);
-        let players_hands = Vec::new();
-
-        let mut engine = Engine { 
-            deck, 
-            state, 
-            players_hands,
-            players,
-        }; 
-
-        for i in 0..engine.players.len() {
-            if i == player_idx {
-                engine.players_hands.push(hand);
-            } else {
-                let h = (
-                    engine.deck.take().ok_or(EngineError::BadDeckError)?, 
-                    engine.deck.take().ok_or(EngineError::BadDeckError)?
-                );
-                engine.players_hands.push(h);
-                engine.players[i].give_cards(h);
-            }
-        }
-
-        loop {
-            match engine.state.round {
-                Round::Starting => engine.start()?,
-                Round::Preflop => engine.preflop()?,
-                Round::Flop => engine.flop()?,
-                Round::Turn => engine.turn()?,
-                Round::River => engine.river()?,
-                Round::Showdown => engine.showdown()?,
-
-                Round::Complete => return Ok(engine.state.players_money)
-            };
-        }
-    }
-
     fn start(&mut self) -> Result<(), EngineError> {
-        for p in self.players.iter_mut() {
+        for (i, p) in self.players.iter_mut().enumerate() {
             self.state.players_bet.push(0);
 
             let hand = (
@@ -112,17 +79,18 @@ impl Engine {
             );
             self.players_hands.push(hand);
             p.give_cards(hand);
+
+            self.action_queue.add(GameMessage::new(GameAction::DealStartHand { hand, i }, self.state.clone()));
         }
 
-        self.state.round = self.state.round.advance();
+        self.state.round = self.state.round.next();
         Ok(())
     }
 
-    fn preflop(&mut self) -> Result<(), EngineError> {
-        debug!("Preflop round");
-        //let mut folded_players = Vec::new();
+    fn preflop(&mut self, start: usize) -> Result<(), EngineError> {
+        self.add_action(GameAction::RoundChanged { round: self.state.round });
         
-        for i in self.state.active_players.clone() {
+        for i in start..self.players.len() {
             //If there's only one player, there's no need to play
             if self.state.num_active_players <= 1 {
                 break;
@@ -134,67 +102,74 @@ impl Engine {
                 Ok(PlayerAction::Call(amount)) => {
                     let all_in = self.state.bet_amount >= self.state.players_money[i] + self.state.players_bet[i];
                     self.state.bet(amount, i, all_in)?;
+
+                    self.add_action(GameAction::PlayedBet { action: action.unwrap(), i, all_in });
                 }
                 Ok(PlayerAction::Fold) => {
                     self.state.folded_players.push(i);
                     self.state.remove_inactive_players();
+
+                    self.add_action(GameAction::PlayedFolded { action: action.unwrap(), i});
                 }
                 Ok(PlayerAction::Raise(_)) => {
                     self.state.folded_players.push(i);
                     self.state.remove_inactive_players();
-                    return Err(EngineError::NoRaiseAllowedError);
+
+                    let error = EngineError::NoRaiseAllowedError;
+                    self.add_action(GameAction::ErroredPlay { error, i });
+                    return Err(error);
                 }
                 Err(e) => {
-                    println!("{e}");
+                    warn!("{e}");
 
                     self.state.folded_players.push(i);
                     self.state.remove_inactive_players();
+
+                    self.add_action(GameAction::ErroredPlay { error: e, i });
                 }
             }
         }
 
-        self.state.round = self.state.round.advance();
+        self.state.round = self.state.round.next();
         Ok(())
     }
 
     fn flop(&mut self) -> Result<(), EngineError> {
-        debug!("Flop round");
+        self.add_action(GameAction::RoundChanged { round: self.state.round });
         
         self.deal_community(3)?;
         self.betting_round()?;
 
-        self.state.round = self.state.round.advance();
+        self.state.round = self.state.round.next();
         Ok(())
     }
 
     fn turn(&mut self) -> Result<(), EngineError> {
-        debug!("Turn round");
+        self.add_action(GameAction::RoundChanged { round: self.state.round });
         
         self.deal_community(1)?;
         self.betting_round()?;
 
-        self.state.round = self.state.round.advance();
+        self.state.round = self.state.round.next();
         Ok(())
     }
 
     fn river(&mut self) -> Result<(), EngineError> {
-        debug!("River round");
+        self.add_action(GameAction::RoundChanged { round: self.state.round });
         
         self.deal_community(1)?;
         self.betting_round()?;
 
-        self.state.round = self.state.round.advance();
+        self.state.round = self.state.round.next();
         Ok(())
     }
 
     fn showdown(&mut self) -> Result<(), EngineError> {
-        debug!("Showdown round");
+        self.add_action(GameAction::RoundChanged { round: self.state.round });
         
         let mut winner = (Rank::HighCard(Value::Two), usize::MAX); //The worst possible rank
         let mut pos = self.state.active_players.clone();
         pos.append(&mut self.state.players_all_in);
-
-        println!("{}", pos.len());
 
         for i in pos {
             let mut hand = Hand::new_from_cards(self.state.community.clone());
@@ -210,13 +185,11 @@ impl Engine {
 
         self.state.award(winner.1);
 
-        self.state.round = self.state.round.advance();
+        self.state.round = self.state.round.next();
         Ok(())
     }
 
     fn betting_round(&mut self) -> Result<(), EngineError> {
-        debug!("Betting round");
-
         let mut raising = true;
 
         while raising && self.state.num_active_players > 1 {
@@ -237,20 +210,28 @@ impl Engine {
                         self.state.bet(amount, i, all_in)?;
 
                         raising = true;
+
+                        self.add_action(GameAction::PlayedBet { action: action.unwrap(), i, all_in});
                     }
                     Ok(PlayerAction::Call(amount)) => {
                         let all_in = self.state.bet_amount >= self.state.players_money[i] + self.state.players_bet[i];
                         self.state.bet(amount, i, all_in)?;
+
+                        self.add_action(GameAction::PlayedBet { action: action.unwrap(), i, all_in });
                     }
                     Ok(PlayerAction::Fold) => {
                         self.state.folded_players.push(i);
                         self.state.remove_inactive_players();
+
+                        self.add_action(GameAction::PlayedFolded { action: action.unwrap(), i});
                     }
                     Err(e) => {
-                        println!("{e}");
+                        warn!("{e}");
 
                         self.state.folded_players.push(i);
                         self.state.remove_inactive_players();
+
+                        self.add_action(GameAction::ErroredPlay { error: e, i});
                     }
                 }
             }
@@ -263,32 +244,114 @@ impl Engine {
         for _ in 0..n {
             let c = self.deck.take().ok_or(EngineError::BadDeckError)?;
             self.state.community.push(c);
+
+            self.add_action(GameAction::DealCommunity { card: c });
         }
 
         Ok(())
+    }
+
+    #[inline(always)]
+    fn add_action(&mut self, action: GameAction) {
+        self.action_queue.add(GameMessage::new(action, self.state.clone()));
+    }
+
+    pub fn run_from_game_state(players: Vec<Box<dyn Player>>, action_queue: Box<dyn GameActionQueue>, state: GameState, hand: PlayerHand, player_idx: usize) -> Result<Vec<i32>, EngineError> {
+        let deck = Deck::new_without_cards(&[&[hand.0, hand.1], state.community.as_slice()].concat());
+        let players_hands = Vec::new();
+
+        let mut engine = Engine { 
+            action_queue,
+            deck, 
+            state, 
+            players_hands,
+            players,
+        }; 
+
+        for i in 0..engine.players.len() {
+            if i == player_idx {
+                engine.players_hands.push(hand);
+                engine.players[i].give_cards(hand);
+                engine.add_action(GameAction::DealStartHand { hand, i });
+            } else {
+                let h = (
+                    engine.deck.take().ok_or(EngineError::BadDeckError)?, 
+                    engine.deck.take().ok_or(EngineError::BadDeckError)?
+                );
+                engine.players_hands.push(h);
+                engine.players[i].give_cards(h);
+                engine.add_action(GameAction::DealStartHand { hand, i });
+            }
+        }
+
+        match engine.state.round.clone() {
+            Round::Flop|Round::Turn|Round::River => {
+                engine.betting_round()?;
+                engine.state.round = engine.state.round.next();
+            }
+            _ => ()
+        }
+
+        loop {
+            match engine.state.round {
+                Round::Starting => engine.start()?,
+                Round::Preflop => engine.preflop(player_idx)?,
+                Round::Flop => engine.flop()?,
+                Round::Turn => engine.turn()?,
+                Round::River => engine.river()?,
+                Round::Showdown => engine.showdown()?,
+
+                Round::Complete => return Ok(engine.state.players_money)
+            };
+        }
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use crate::{player, core::EngineError};
+    use crate::{player::*, core::{*, action::test_queue::TestQueue}};
 
-    use super::Engine;
+    use super::*;
+
+    use std::sync::Once;
+
+    static INIT: Once = Once::new();
 
     #[test]
-    fn debug_engine() -> Result<(), EngineError>{
-        env_logger::init();
-
+    fn action_queue() -> Result<(), EngineError>{
         let players = vec![
-            Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-            Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-            Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-            Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
         ];
 
         let old_stacks = vec![100, 100, 100, 100];
 
-        let engine = Engine::new(players)?;
+        let engine = Engine::new(players, Box::new(TestQueue::default()))?;
+
+        let new_stacks =  engine.run(old_stacks.clone(), 1)?;
+
+        println!("{:?}", old_stacks);
+        println!("{:?}", new_stacks);
+
+        Ok(())
+    }
+
+    #[test]
+    fn debug_engine() -> Result<(), EngineError>{
+        INIT.call_once(|| env_logger::init());
+
+        let players = vec![
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+        ];
+
+        let old_stacks = vec![100, 100, 100, 100];
+
+        let engine = Engine::new(players, Box::new(TestQueue::default()))?;
 
         let new_stacks =  engine.run(old_stacks.clone(), 1)?;
 
@@ -301,7 +364,7 @@ mod tests {
     #[test]
     #[ignore = "Takes ages for running"]
     fn loop_dummies() -> Result<(), EngineError> {
-        env_logger::init();
+        INIT.call_once(|| env_logger::init());
 
         let rounds = 10000;
         let initial_money = 10000;
@@ -311,16 +374,16 @@ mod tests {
 
         for i in 0..rounds {
             let players = vec![
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
-                Box::new(player::dummy::DummyPlayer::default()) as Box<dyn player::Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
             ];
-            let engine = Engine::new(players)?;
+            let engine = Engine::new(players, Box::new(TestQueue::default()))?;
 
             stacks =  engine.run(stacks.clone(), 1)?;
             println!("- {i} {:?} {:?}", old_stacks, stacks);
@@ -328,5 +391,65 @@ mod tests {
         }
 
         Ok(())
+    }
+
+    #[test]
+    fn run_from_started_game() {
+        INIT.call_once(|| env_logger::init());
+
+        let state = crate::core::state::GameState { 
+            round: Round::Preflop, 
+            community: vec![Card{ suit: Suit::Diamond, value: Value::Ten }, Card{ suit: Suit::Spade, value: Value::Two }, Card{ suit: Suit::Heart, value: Value::King },], 
+            players_bet: vec![1, 0, 0, 0], 
+            players_money: vec![0, 100, 100, 100], 
+            bet_amount: 1, 
+            players_all_in: vec![0], 
+            folded_players: vec![],
+            num_active_players: 3, 
+            active_players: vec![1, 2, 3],
+        };
+        let players = vec![
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+        ];
+        let hand = (Card{ suit: Suit::Club, value: Value::Ace }, Card{ suit: Suit::Spade, value: Value::Ace });
+        let player_idx = 1;
+
+        let stacks = Engine::run_from_game_state( players, Box::new(TestQueue::default()), state, hand, player_idx).unwrap();
+        println!("{stacks:?}");
+    }
+
+    #[test]
+    #[ignore = "Takes ages for running"]
+    fn loop_from_started() {
+        INIT.call_once(|| env_logger::init());
+        let rounds = 10000;
+
+        for i in 0..rounds {
+            let state = crate::core::state::GameState { 
+                round: Round::Flop, 
+                community: vec![Card{ suit: Suit::Diamond, value: Value::Ten }, Card{ suit: Suit::Spade, value: Value::Two }, Card{ suit: Suit::Heart, value: Value::King },], 
+                players_bet: vec![1, 1, 1, 1], 
+                players_money: vec![99, 99, 99, 99], 
+                bet_amount: 1, 
+                players_all_in: vec![], 
+                folded_players: vec![0],
+                num_active_players: 3, 
+                active_players: vec![1, 2, 3],
+            };
+            let players = vec![
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+            ];
+            let hand = (Card{ suit: Suit::Club, value: Value::Ace }, Card{ suit: Suit::Spade, value: Value::Ace });
+            let player_idx = 1;
+    
+            let stacks = Engine::run_from_game_state(players, Box::new(TestQueue::default()), state, hand, player_idx).unwrap();
+            println!("- {i} {:?}", stacks);
+        }
     }
 }

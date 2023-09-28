@@ -1,5 +1,3 @@
-use log::debug;
-
 use crate::core::card::Card;
 
 use super::EngineError;
@@ -16,7 +14,7 @@ pub enum Round {
 }
 
 impl Round {
-    pub fn advance(&self) -> Self {
+    pub fn next(&self) -> Self {
         match *self {
             Round::Starting => Round::Preflop,
             Round::Preflop => Round::Flop,
@@ -51,7 +49,6 @@ impl GameState {
         self.validate_bet(amount, player_idx, all_in)?;
 
         if all_in {
-            debug!("Player {player_idx} all in");
             self.players_all_in.push(player_idx);
             self.num_active_players -= 1;
             

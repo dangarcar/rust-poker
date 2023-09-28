@@ -4,6 +4,7 @@ pub mod hand;
 pub mod rank;
 pub mod engine;
 pub mod state;
+pub mod action;
 
 use thiserror::Error;
 
