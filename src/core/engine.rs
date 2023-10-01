@@ -80,7 +80,7 @@ impl Engine {
             self.players_hands.push(hand);
             p.give_cards(hand);
 
-            self.action_queue.add(GameMessage::new(GameAction::DealStartHand { hand, i }, self.state.clone()));
+            //self.action_queue.add(GameMessage::new(GameAction::DealStartHand { hand, i }, self.state.clone()));
         }
 
         self.state.round = self.state.round.next();
@@ -172,18 +172,19 @@ impl Engine {
         pos.append(&mut self.state.players_all_in);
 
         for i in pos {
-            let mut hand = Hand::new_from_cards(self.state.community.clone());
-            hand.push(self.players_hands[i].0);
-            hand.push(self.players_hands[i].1);
+            let hand = Hand::new_from_hand(self.players_hands[i], &self.state.community);
 
             let rank = hand.rank()?;
             if winner.0 < rank {
                 winner.1 = i;
                 winner.0 = rank;
             }
+
+            self.add_action(GameAction::ShowdownHand { hand: self.players_hands[i], rank, i });
         }
 
-        self.state.award(winner.1);
+        let pot = self.state.award(winner.1);
+        self.add_action(GameAction::WinGame { rank: winner.0, i: winner.1, pot });
 
         self.state.round = self.state.round.next();
         Ok(())
@@ -318,38 +319,37 @@ mod tests {
     static INIT: Once = Once::new();
 
     #[test]
-    fn action_queue() -> Result<(), EngineError>{
-        let players = vec![
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-        ];
+    #[should_panic]
+    fn so_many_players() {
+        INIT.call_once(env_logger::init);
 
-        let old_stacks = vec![100, 100, 100, 100];
+        let mut players: Vec<Box<dyn Player>> = Vec::new();
+        let n = 24;
 
-        let engine = Engine::new(players, Box::new(TestQueue::default()))?;
+        for _ in 0..n {
+            players.push(Box::new(dummy::DummyPlayer::default()));
+        }
+        let old_stacks = vec![100; n];
 
-        let new_stacks =  engine.run(old_stacks.clone(), 1)?;
+        let engine = Engine::new(players, Box::new(TestQueue::default())).unwrap();
+
+        let new_stacks =  engine.run(old_stacks.clone(), 1).unwrap();
 
         println!("{:?}", old_stacks);
         println!("{:?}", new_stacks);
-
-        Ok(())
     }
 
     #[test]
     fn debug_engine() -> Result<(), EngineError>{
-        INIT.call_once(|| env_logger::init());
+        INIT.call_once(env_logger::init);
 
-        let players = vec![
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-        ];
+        let mut players: Vec<Box<dyn Player>> = Vec::new();
+        let n = 23;
 
-        let old_stacks = vec![100, 100, 100, 100];
+        for _ in 0..n {
+            players.push(Box::new(dummy::DummyPlayer::default()));
+        }
+        let old_stacks = vec![1000; n];
 
         let engine = Engine::new(players, Box::new(TestQueue::default()))?;
 
@@ -364,25 +364,20 @@ mod tests {
     #[test]
     #[ignore = "Takes ages for running"]
     fn loop_dummies() -> Result<(), EngineError> {
-        INIT.call_once(|| env_logger::init());
+        INIT.call_once(env_logger::init);
 
-        let rounds = 10000;
+        let rounds = 1000;
         let initial_money = 10000;
+        let n = 20;
 
-        let mut stacks = vec![initial_money; 8];
+        let mut stacks = vec![initial_money; n];
         let mut old_stacks = stacks.clone();
 
         for i in 0..rounds {
-            let players = vec![
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            ];
+            let mut players: Vec<Box<dyn Player>> = Vec::new();
+            for _ in 0..n {
+                players.push(Box::new(dummy::DummyPlayer::default()));
+            }
             let engine = Engine::new(players, Box::new(TestQueue::default()))?;
 
             stacks =  engine.run(stacks.clone(), 1)?;
@@ -395,11 +390,11 @@ mod tests {
 
     #[test]
     fn run_from_started_game() {
-        INIT.call_once(|| env_logger::init());
+        INIT.call_once(env_logger::init);
 
         let state = crate::core::state::GameState { 
             round: Round::Preflop, 
-            community: vec![Card{ suit: Suit::Diamond, value: Value::Ten }, Card{ suit: Suit::Spade, value: Value::Two }, Card{ suit: Suit::Heart, value: Value::King },], 
+            community: vec![], 
             players_bet: vec![1, 0, 0, 0], 
             players_money: vec![0, 100, 100, 100], 
             bet_amount: 1, 
@@ -419,37 +414,5 @@ mod tests {
 
         let stacks = Engine::run_from_game_state( players, Box::new(TestQueue::default()), state, hand, player_idx).unwrap();
         println!("{stacks:?}");
-    }
-
-    #[test]
-    #[ignore = "Takes ages for running"]
-    fn loop_from_started() {
-        INIT.call_once(|| env_logger::init());
-        let rounds = 10000;
-
-        for i in 0..rounds {
-            let state = crate::core::state::GameState { 
-                round: Round::Flop, 
-                community: vec![Card{ suit: Suit::Diamond, value: Value::Ten }, Card{ suit: Suit::Spade, value: Value::Two }, Card{ suit: Suit::Heart, value: Value::King },], 
-                players_bet: vec![1, 1, 1, 1], 
-                players_money: vec![99, 99, 99, 99], 
-                bet_amount: 1, 
-                players_all_in: vec![], 
-                folded_players: vec![0],
-                num_active_players: 3, 
-                active_players: vec![1, 2, 3],
-            };
-            let players = vec![
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-                Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
-            ];
-            let hand = (Card{ suit: Suit::Club, value: Value::Ace }, Card{ suit: Suit::Spade, value: Value::Ace });
-            let player_idx = 1;
-    
-            let stacks = Engine::run_from_game_state(players, Box::new(TestQueue::default()), state, hand, player_idx).unwrap();
-            println!("- {i} {:?}", stacks);
-        }
     }
 }

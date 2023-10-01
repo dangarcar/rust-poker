@@ -32,6 +32,22 @@ pub enum Rank {
     StraightFlush(Value, Suit),
 }
 
+impl Rank {
+    pub fn to_i32(&self) -> i32 {
+        match self {
+            Rank::HighCard(_) => 1,
+            Rank::OnePair(_) => 2,
+            Rank::TwoPair(_,_) => 3,
+            Rank::ThreeOfAKind(_) => 4,
+            Rank::Straight(_) => 5,
+            Rank::Flush(_,_) => 6,
+            Rank::FullHouse(_,_) => 7,
+            Rank::FourOfAKind(_) => 8,
+            Rank::StraightFlush(_,_) => 9,
+        }
+    }
+}
+
 impl PartialEq for Rank {
     ///Custom eq to not order dependent on the suit
     fn eq(&self, other: &Self) -> bool {

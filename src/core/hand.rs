@@ -1,5 +1,6 @@
 use crate::core::card::*;
 use crate::core::rank;
+use crate::player::PlayerHand;
 
 use super::EngineError;
 
@@ -12,8 +13,15 @@ impl Hand {
         Hand{cards: Vec::new()}
     }
 
-    pub fn new_from_cards(cards: Vec<Card>) -> Self {
-        Hand{cards}
+    pub fn new_from_cards(cards: &Vec<Card>) -> Self {
+        Hand{ cards: cards.clone() }
+    }
+
+    pub fn new_from_hand(h: PlayerHand, com: &Vec<Card>) -> Self {
+        let mut hand = Hand::new_from_cards(com);
+        hand.push(h.0);
+        hand.push(h.1);
+        hand
     }
 
     pub fn push(&mut self, card: Card) {
@@ -38,7 +46,7 @@ mod tests {
 
     #[test]
     fn high_card_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Ace),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Ten),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Two),
@@ -54,7 +62,7 @@ mod tests {
 
     #[test]
     fn one_pair_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Ace),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Ten),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Two),
@@ -70,7 +78,7 @@ mod tests {
 
     #[test]
     fn two_pair_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Three),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Ten),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Two),
@@ -86,7 +94,7 @@ mod tests {
 
     #[test]
     fn three_of_a_kind_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Three),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Ten),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Two),
@@ -102,7 +110,7 @@ mod tests {
 
     #[test]
     fn four_of_a_kind_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Three),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Ten),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Two),
@@ -118,7 +126,7 @@ mod tests {
 
     #[test]
     fn flush_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Ace),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::King),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Three),
@@ -134,7 +142,7 @@ mod tests {
 
     #[test]
     fn full_house_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Three),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Ace),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Ace),
@@ -150,7 +158,7 @@ mod tests {
 
     #[test]
     fn straight_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Ace),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::King),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Queen),
@@ -166,7 +174,7 @@ mod tests {
 
     #[test]
     fn straight_corner_case_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Club, crate::core::card::Value::Ace),
             Card::new(crate::core::card::Suit::Spade, crate::core::card::Value::Two),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Three),
@@ -182,7 +190,7 @@ mod tests {
 
     #[test]
     fn straight_flush_rank() {
-        let hand = Hand::new_from_cards(vec![
+        let hand = Hand::new_from_cards(&vec![
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Ace),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::King),
             Card::new(crate::core::card::Suit::Diamond, crate::core::card::Value::Queen),

@@ -6,6 +6,7 @@ use super::state::GameState;
 
 pub mod game_action;
 pub mod test_queue;
+pub mod empty_queue;
 
 #[derive(Debug, Clone)]
 pub struct GameMessage {

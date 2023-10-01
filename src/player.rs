@@ -19,3 +19,4 @@ pub enum PlayerAction {
 }
 
 pub mod dummy;
+pub mod montecarlo;

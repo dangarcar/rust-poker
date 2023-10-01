@@ -1,6 +1,6 @@
 use rand::{thread_rng, Rng};
 
-use crate::core::{state::GameState, EngineError};
+use crate::core::{state::GameState, EngineError, hand::Hand, rank::Rankable};
 
 use super::*;
 
@@ -10,9 +10,7 @@ pub struct DummyPlayer {
 }
 
 const FOLD_PROB: f64 = 0.2;
-const RAISE_PROB: f64 = 0.4;
-
-const MAX_BET: i32 = 100; 
+const RAISE_PROB: f64 = 0.1;
 
 impl Player for DummyPlayer {
 
@@ -21,14 +19,19 @@ impl Player for DummyPlayer {
 
         let cash = state.players_money[i];
         let my_bet = state.players_bet[i];
-        let diff = state.bet_amount - my_bet; //The amount to raise
+        let diff = state.bet_amount - my_bet; //The amount to call
 
-        if rng.gen_bool(FOLD_PROB) {
+        let hand = Hand::new_from_hand(self.hand.unwrap(), &state.community);
+        let rank = hand.rank()?;
+        let fold_prob = FOLD_PROB.powi(rank.to_i32());
+        let raise_prob = RAISE_PROB * rank.to_i32() as f64;
+
+        if rng.gen_bool(fold_prob) {
             return Ok(PlayerAction::Fold);
         }
-        else if rng.gen_bool(RAISE_PROB) && cash > diff {
+        else if rng.gen_bool(raise_prob) && cash > diff {
             let x: f64 = rng.gen();
-            let delta = std::cmp::min(cash-diff, MAX_BET) as f64 * x*x*x;
+            let delta = (cash-diff) as f64 * x*x*x;
             let raised = if delta <= 1.0 {1} else {delta as i32};
 
             Ok(PlayerAction::Raise(diff + raised))

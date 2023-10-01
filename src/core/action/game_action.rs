@@ -1,4 +1,4 @@
-use crate::{player::{PlayerHand, PlayerAction}, core::{state::Round, card::Card, EngineError}};
+use crate::{player::{PlayerHand, PlayerAction}, core::{state::Round, card::Card, EngineError, rank::Rank}};
 
 #[derive(Debug, Clone)]
 pub enum GameAction {
@@ -36,4 +36,18 @@ pub enum GameAction {
         error: EngineError,
         i: usize,
     },
+
+    ///Showdown
+    ShowdownHand {
+        hand: PlayerHand,
+        rank: Rank,
+        i: usize,
+    },
+
+    ///Win game
+    WinGame {
+        rank: Rank,
+        i: usize,
+        pot: i32,
+    }
 }

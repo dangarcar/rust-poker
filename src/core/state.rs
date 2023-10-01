@@ -76,12 +76,14 @@ impl GameState {
         }
     }
 
-    pub fn award(&mut self, player: usize) {
+    pub fn award(&mut self, player: usize) -> i32 {
         let pot: i32 = self.players_bet.iter().sum();
 
         self.players_money[player] += pot;
 
         self.players_bet.clear();
+
+        pot
     }
 
     pub fn remove_inactive_players(&mut self) {
