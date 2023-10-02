@@ -1,12 +1,15 @@
-use std::{cmp, ops::Div};
+use std::ops::Div;
 
+use itertools::Itertools;
 use rayon::prelude::*;
 use rand::{thread_rng, Rng};
-use crate::core::{state::GameState, EngineError, engine::Engine, action::empty_queue::EmptyQueue};
-use super::{*, dummy::DummyPlayer};
+use crate::core::{state::GameState, EngineError, hand::*, card::*, rank::*, deck::*};
 
-type Rival = DummyPlayer;
+use super::*;
+
 const SIM_ROUNDS: i32 = 10000;
+
+const BLIND_FOLD_PROB: f64 = 0.7;
 
 #[derive(Debug, Default)]
 pub struct MontecarloPlayer {
@@ -24,8 +27,10 @@ impl Player for MontecarloPlayer {
 
     fn blind(&mut self, state: &GameState, i: usize) -> Result<PlayerAction, EngineError> {
         let cash = state.players_money[i];
+        let n_players =  state.players_money.len() - state.folded_players.len();
 
-        let fold = (self.hand.unwrap().0.value as i32 + self.hand.unwrap().1.value as i32) < 10;
+        let (win, _lose) = self.montecarlo_sim(state, i, SIM_ROUNDS)?;
+        let fold = (win * n_players as f64) < BLIND_FOLD_PROB;
 
         if fold || cash < state.bet_amount {
             return Ok(PlayerAction::Fold);
@@ -36,6 +41,7 @@ impl Player for MontecarloPlayer {
     }
 
     fn play(&mut self, state: &GameState, i: usize) -> Result<PlayerAction, EngineError> {
+        let n_players =  state.players_money.len() - state.folded_players.len();
         let mut rng = thread_rng();
 
         let cash = state.players_money[i];
@@ -44,7 +50,7 @@ impl Player for MontecarloPlayer {
 
         let (win, _lose) = self.montecarlo_sim(state, i, SIM_ROUNDS)?;
 
-        let win_pp = win * state.num_active_players as f64;
+        let win_pp = win * n_players as f64;
 
         if win_pp < 1.0 {
             return Ok(PlayerAction::Fold);
@@ -63,19 +69,48 @@ impl Player for MontecarloPlayer {
 }
 
 impl MontecarloPlayer {
-    fn play_montecarlo_game(&self, state: &GameState, i: usize) -> Result<i32, EngineError> {
-        let initial_cash = state.players_money[i];
-
-        let mut players: Vec<Box<dyn Player>> = Vec::new();
+    fn play_montecarlo(&self, state: &GameState, player_idx: usize) -> Result<usize, EngineError> {
         let players_length = state.players_money.len();
-        for _ in 0..players_length {
-            players.push(Box::new(Rival::default()));
+
+        let mut players_hands = Vec::new();
+        
+        let mut community = state.community.clone();
+        
+        let h = self.hand.unwrap();
+        let mut deck = Deck::new_without_cards(&[&[h.0, h.1], community.as_slice()].concat());
+
+        //Give cards to the players
+        for i in 0..players_length {
+            if i == player_idx {
+                players_hands.push(self.hand.unwrap());
+            } else {
+                players_hands.push((
+                    deck.take().ok_or(EngineError::BadDeckError)?, 
+                    deck.take().ok_or(EngineError::BadDeckError)?
+                ));
+            }
         }
 
-        let res = Engine::run_from_game_state(players, Box::new(EmptyQueue::default()), state.clone(), self.hand.unwrap(), i);
-        let end_cash = res?[i];
+        //Fill the community cards
+        while community.len() < 5 {
+            community.push(deck.take().ok_or(EngineError::BadDeckError)?);
+        }
+        
+        let mut pos = (0..players_length).collect_vec();
+        pos.retain(|p| !state.folded_players.contains(p));
 
-        Ok(end_cash - initial_cash)
+        let mut winner = (Rank::HighCard(Value::Two), usize::MAX); //The worst possible rank
+        for i in pos {
+            let hand = Hand::new_from_hand(players_hands[i], &community);
+
+            let rank = hand.rank()?;
+            if winner.0 < rank {
+                winner.1 = i;
+                winner.0 = rank;
+            }
+        }
+
+        Ok(winner.1)
     }
 
     pub fn montecarlo_sim(&self, state: &GameState, i: usize, rounds: i32) -> Result<(f64,f64), EngineError> {
@@ -83,8 +118,8 @@ impl MontecarloPlayer {
         let win: i32 = times
             .into_par_iter()
             .map(|_| {
-                let diff = self.play_montecarlo_game(state, i).unwrap_or(-1);
-                if diff > 0 { 1 }
+                let p = self.play_montecarlo(state, i).unwrap_or(usize::MAX);
+                if p == i { 1 }
                 else { 0 }
             })
             .sum();
@@ -97,18 +132,14 @@ impl MontecarloPlayer {
 
 #[cfg(test)]
 mod tests {
-    use crate::core::{state::*, card::*, action::test_queue::TestQueue};
+    use crate::core::{state::*, action::test_queue::TestQueue, engine::Engine};
 
     use super::*;
 
-    use std::{sync::Once, time::Instant};
-
-    static INIT: Once = Once::new();
+    use std::time::Instant;
 
     #[test]
     fn montecarlo_game() -> Result<(), EngineError>{
-        INIT.call_once(env_logger::init);
-
         let mut players: Vec<Box<dyn Player>> = Vec::new();
         let n = 8;
 
@@ -129,7 +160,6 @@ mod tests {
 
     #[test]
     fn montecarlo_simulation() {
-        INIT.call_once(env_logger::init);
             let state = crate::core::state::GameState { 
                 round: Round::Flop, 
                 community: vec![Card{ suit: Suit::Diamond, value: Value::Ten }, Card{ suit: Suit::Spade, value: Value::Two }, Card{ suit: Suit::Heart, value: Value::King },], 
@@ -145,7 +175,7 @@ mod tests {
     
             let m = MontecarloPlayer { hand: Some((Card{ suit: Suit::Club, value: Value::Two }, Card{ suit: Suit::Diamond, value: Value::Ace})) };
     
-            for i in 0..6 {
+            for i in 0..7 {
                 let r = 10i32.pow(i);
                 let t = Instant::now();
                 let p = m.montecarlo_sim(&state, player_idx, r).unwrap();
@@ -156,7 +186,6 @@ mod tests {
 
     #[test]
     fn loop_montecarlo() {
-        INIT.call_once(env_logger::init);
         let rounds = 2000;
 
         let mut v = 0;
@@ -177,9 +206,9 @@ mod tests {
     
             let m = MontecarloPlayer { hand: Some((Card{ suit: Suit::Club, value: Value::Two }, Card{ suit: Suit::Diamond, value: Value::Ace})) };
     
-            let diff = m.play_montecarlo_game(&state, player_idx).unwrap();
+            let p = m.play_montecarlo(&state, player_idx).unwrap();
     
-            if diff > 0 { v += 1; }
+            if p == player_idx { v += 1; }
         }
 
         println!("{}", v as f64 / rounds as f64 * 100.0);

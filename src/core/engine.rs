@@ -80,7 +80,7 @@ impl Engine {
             self.players_hands.push(hand);
             p.give_cards(hand);
 
-            //self.action_queue.add(GameMessage::new(GameAction::DealStartHand { hand, i }, self.state.clone()));
+            self.action_queue.add(GameMessage::new(GameAction::DealStartHand { hand, i }, self.state.clone()));
         }
 
         self.state.round = self.state.round.next();
