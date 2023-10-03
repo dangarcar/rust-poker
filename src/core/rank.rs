@@ -4,7 +4,7 @@ use itertools::Itertools;
 
 use crate::core::card::*;
 
-use super::EngineError;
+use super::error::EngineError;
 
 #[derive(PartialOrd, Ord, Eq, Debug, Clone, Copy, Hash)]
 pub enum Rank {

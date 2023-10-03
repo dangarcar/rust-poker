@@ -3,11 +3,11 @@ use std::ops::Div;
 use itertools::Itertools;
 use rayon::prelude::*;
 use rand::{thread_rng, Rng};
-use crate::core::{state::GameState, EngineError, hand::*, card::*, rank::*, deck::*};
+use crate::core::{state::GameState, error::EngineError, hand::*, card::*, rank::*, deck::*};
 
 use super::*;
 
-const SIM_ROUNDS: i32 = 10000;
+const SIM_ROUNDS: i32 = 5000;
 
 const BLIND_FOLD_PROB: f64 = 0.7;
 

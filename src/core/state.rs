@@ -1,6 +1,6 @@
 use crate::core::card::Card;
 
-use super::EngineError;
+use super::error::EngineError;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum Round {

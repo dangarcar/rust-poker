@@ -1,4 +1,4 @@
-use crate::core::{card::Card, state::GameState, EngineError};
+use crate::core::{card::Card, state::GameState, error::EngineError};
 
 pub type PlayerHand = (Card, Card);
 

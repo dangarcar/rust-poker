@@ -1,8 +1,8 @@
 use crate::core::card::*;
 use crate::core::rank;
-use crate::player::PlayerHand;
+use crate::core::player::PlayerHand;
 
-use super::EngineError;
+use super::error::EngineError;
 
 pub struct Hand {
     cards: Vec<Card>

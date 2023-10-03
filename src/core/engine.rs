@@ -4,11 +4,11 @@ use crate::core::card::*;
 use crate::core::hand::Hand;
 use crate::core::rank::Rank;
 use crate::core::rank::Rankable;
-use crate::player::*;
+use crate::core::player::*;
 use crate::core::deck::*;
 use crate::core::state::*;
 
-use super::EngineError;
+use super::error::EngineError;
 use super::action::GameActionQueue;
 use super::action::GameMessage;
 use super::action::game_action::GameAction;
@@ -310,7 +310,7 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
-    use crate::{player::*, core::{*, action::test_queue::TestQueue}};
+    use crate::{core::{player::*, action::test_queue::EmptyQueue}, core::action::test_queue::TestQueue};
 
     use super::*;
 
@@ -366,24 +366,38 @@ mod tests {
     fn loop_dummies() -> Result<(), EngineError> {
         INIT.call_once(env_logger::init);
 
-        let rounds = 1000;
-        let initial_money = 10000;
-        let n = 20;
+        let rounds = 50;
+        let mut wins = vec![0; 4];
 
-        let mut stacks = vec![initial_money; n];
-        let mut old_stacks = stacks.clone();
+        for _ in 0..rounds {
+            let initial_money = 100;
 
-        for i in 0..rounds {
-            let mut players: Vec<Box<dyn Player>> = Vec::new();
-            for _ in 0..n {
-                players.push(Box::new(dummy::DummyPlayer::default()));
+            let mut stacks = vec![initial_money; 4];
+            let old_stacks = stacks.clone();
+
+            for _ in 0..50 {
+                let players = vec![
+                    Box::new(montecarlo::MontecarloPlayer::default()) as Box<dyn Player>,
+                    Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                    Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                    Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
+                ];
+                let engine = Engine::new(players, Box::new(EmptyQueue::default()))?;
+
+                stacks =  engine.run(stacks.clone(), 1)?;
             }
-            let engine = Engine::new(players, Box::new(TestQueue::default()))?;
 
-            stacks =  engine.run(stacks.clone(), 1)?;
-            println!("- {i} {:?} {:?}", old_stacks, stacks);
-            old_stacks = stacks.clone();
+            for i in 0..stacks.len() {
+                if stacks[i] > old_stacks[i] {
+                    wins[i] += 1;
+                }
+            }
         }
+
+        for w in wins {
+            print!("{} ", w as f64 / rounds as f64);
+        }
+        println!();
 
         Ok(())
     }

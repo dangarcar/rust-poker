@@ -1,6 +1,6 @@
 use rand::{thread_rng, Rng};
 
-use crate::core::{state::GameState, EngineError, hand::Hand, rank::Rankable};
+use crate::core::{state::GameState, error::EngineError, hand::Hand, rank::Rankable};
 
 use super::*;
 
