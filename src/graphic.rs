@@ -1,7 +1,7 @@
 extern crate sdl2;
 use std::path::Path;
 
-use sdl2::{render::{WindowCanvas, Texture, TextureQuery, TextureCreator}, ttf::Sdl2TtfContext, video::WindowContext, rect::{Rect, Point}};
+use sdl2::{render::{WindowCanvas, Texture, TextureQuery, TextureCreator}, ttf::Sdl2TtfContext, video::WindowContext, rect::{Rect, Point}, image::LoadTexture};
 
 use self::font::FontParams;
 
@@ -19,14 +19,16 @@ pub struct SDL2Graphics<'a> {
 	canvas: WindowCanvas,
 	ttf: Sdl2TtfContext,
 	font_path: &'a Path,
+    bg_path: &'a Path,
 }
 
 impl <'a> SDL2Graphics<'a> {
-	pub fn from(canvas: WindowCanvas, ttf: Sdl2TtfContext, font_path: &'a Path) -> Self {
+	pub fn from(canvas: WindowCanvas, ttf: Sdl2TtfContext, font_path: &'a Path, bg_path: &'a Path) -> Self {
 		SDL2Graphics {
 			canvas,
 			ttf,
 			font_path,
+            bg_path,
 		}
 	}
 	
@@ -34,8 +36,12 @@ impl <'a> SDL2Graphics<'a> {
 		self.canvas.present();
 	}
 
-    pub fn clear(&mut self) {
-        self.canvas.clear();
+    pub fn clear(&mut self) -> Result<(), String> {
+        let texture_creator = self.canvas.texture_creator();
+        let bg = texture_creator.load_texture(self.bg_path)?;
+        self.canvas.copy(&bg, None, None)?;
+
+        Ok(())
     }
 
     pub fn draw_rect() {

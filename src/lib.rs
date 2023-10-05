@@ -14,7 +14,7 @@ use graphic::renderer::CARD_SPRITE_RATIO;
 use sdl2::rect::Rect;
 use sdl2::render::{WindowCanvas, Texture};
 
-fn draw(canvas: &mut WindowCanvas, texture: &Texture) {
+fn _draw(canvas: &mut WindowCanvas, texture: &Texture) {
     let mut deck = Deck::default();
 
     let mut x = 100;

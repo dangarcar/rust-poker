@@ -1,4 +1,6 @@
-use super::{SDL2Graphics, button::Button};
+use sdl2::event::Event;
+
+use super::{SDL2Graphics, button::Button, event_receiver::EventReceiver};
 
 
 pub struct UI {
@@ -10,6 +12,11 @@ impl UI {
         UI { 
             btn: Button::default(),
         }
+    }
+
+    pub fn handle_event(&mut self, event: &Event) -> Result<(), String> {
+        self.btn.handle_event(event);
+        Ok(())
     }
 
     pub fn render(&self, gfx: &mut SDL2Graphics) -> Result<(), String> {

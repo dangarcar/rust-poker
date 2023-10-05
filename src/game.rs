@@ -14,8 +14,9 @@ impl Game {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event) {
-
+    pub fn handle_event(&mut self, event: &Event) -> Result<(), String> {
+        self.ui.handle_event(event)?;
+        Ok(())
     }
 
     pub fn update(&mut self) {

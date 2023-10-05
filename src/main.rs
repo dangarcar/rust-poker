@@ -17,6 +17,7 @@ fn main() {
     let _image_context = sdl2::image::init(sdl2::image::InitFlag::PNG).expect("Couldn't initialize the image context");
 
     let font_path = Path::new("assets/Roboto-Regular.ttf");
+    let bg_path = Path::new("assets/vecteezy_poker-table-green-cloth-on-dark-background-vector-illustration_6325236.jpg");
 
     let window = video_subsystem.window(graphic::TITLE, graphic::WIDTH, graphic::HEIGHT)
         //.fullscreen_desktop()
@@ -30,7 +31,7 @@ fn main() {
         .build()
         .expect("Couldn't create canvas");
 
-    let mut gfx = graphic::SDL2Graphics::from(canvas, ttf, font_path);
+    let mut gfx = graphic::SDL2Graphics::from(canvas, ttf, font_path, bg_path);
 
     let mut game = Game::new();
 
@@ -46,14 +47,14 @@ fn main() {
                 } => break 'running,
                 _ => {}
             }
-            game.handle_event(&event);
+            game.handle_event(&event).ok();
         }
 
         //Internal structure update
         game.update();
 
         // Graphic update
-        gfx.clear();
+        gfx.clear().ok();
         game.render(&mut gfx).ok();
         gfx.show();
     }
