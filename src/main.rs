@@ -1,63 +1,60 @@
-use std::{time, thread};
-
-use poker::core::deck::Deck;
-use poker::graphic;
-
 extern crate sdl2;
 
-use poker::graphic::renderer::CARD_SPRITE_RATIO;
-use sdl2::image::LoadTexture;
-use sdl2::pixels::Color;
+use std::path::Path;
+
+use poker::game::Game;
+use poker::graphic;
+
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::rect::Rect;
 
 fn main() {
     env_logger::init();
 
-    let context = graphic::GraphicContext::new();
+    let sdl_context = sdl2::init().expect("Couldn't create SDL2 context");
+    let ttf = sdl2::ttf::init().expect("Couldn't create text context");
+    let video_subsystem = sdl_context.video().expect("Couldn't create video subsystem");
+    let _image_context = sdl2::image::init(sdl2::image::InitFlag::PNG).expect("Couldn't initialize the image context");
 
-    let mut canvas = context.canvas;
-    let texture_creator = canvas.texture_creator();
-    let texture = [
-        texture_creator.load_texture(graphic::renderer::CARD_SPRITESHEET).unwrap()
-    ];
+    let font_path = Path::new("assets/Roboto-Regular.ttf");
 
-    let mut event_pump = context.event_pump;
+    let window = video_subsystem.window(graphic::TITLE, graphic::WIDTH, graphic::HEIGHT)
+        //.fullscreen_desktop()
+        .fullscreen()
+        .position_centered()
+        .build()
+        .expect("Couldn't create window");
+    let canvas = window.into_canvas()
+        .accelerated()
+        //.present_vsync()
+        .build()
+        .expect("Couldn't create canvas");
 
-    let mut deck = Deck::default();
+    let mut gfx = graphic::SDL2Graphics::from(canvas, ttf, font_path);
 
+    let mut game = Game::new();
+
+    let mut event_pump = sdl_context.event_pump().expect("Couldn't create the event loop");
     'running: loop {
-        canvas.set_draw_color(Color::RGB(4, 125, 58));
-
-        canvas.clear();
+        //Event update
         for event in event_pump.poll_iter() {
             match event {
-                Event::Quit {..} |
-                Event::KeyDown { keycode: Some(Keycode::Escape), .. } => {
-                    break 'running
-                },
+                Event::Quit { .. }
+                | Event::KeyDown {
+                    keycode: Some(Keycode::Escape),
+                    ..
+                } => break 'running,
                 _ => {}
             }
+            game.handle_event(&event);
         }
 
-        let mut x = 100;
-        let mut y = 100;
+        //Internal structure update
+        game.update();
 
-        if deck.len() > 0 {
-            for _ in 0..deck.len()-1 {
-                x -= 1; y -= 1;
-                let dst = Rect::new(x, y, 200, (200 as f32 *CARD_SPRITE_RATIO) as u32);
-                graphic::renderer::render_card(&mut canvas, &texture[0], &None, dst).unwrap();
-            }
-
-            let card = deck.take();
-            let dst = Rect::new(500, 100, 200, (200 as f32 *CARD_SPRITE_RATIO) as u32);
-            graphic::renderer::render_card(&mut canvas, &texture[0], &card, dst).unwrap();
-        }
-
-        canvas.present();
-
-        thread::sleep(time::Duration::from_millis(250));
+        // Graphic update
+        gfx.clear();
+        game.render(&mut gfx).ok();
+        gfx.show();
     }
 }

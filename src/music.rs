@@ -10,12 +10,12 @@ mod tests {
         let sink = Sink::try_new(&stream_handle).unwrap();
 
         // Load a sound from a file, using a path relative to Cargo.toml
-        let file = BufReader::new(File::open("assets/TETRIS.mp3").unwrap());
+        let file = BufReader::new(File::open("assets/b.mp3").unwrap());
         // Decode that sound file into a source
         let source = Decoder::new(file).unwrap();        
         sink.append(source);
 
-        sink.set_speed(2.0);
+        sink.set_speed(1.4);
 
         sink.sleep_until_end();
     }

@@ -1,3 +1,5 @@
+///The code necessary to set up a poker engine and play, without UI
+
 pub mod deck;
 pub mod card;
 pub mod hand;
