@@ -6,14 +6,17 @@ use sdl2::{render::{WindowCanvas, Texture, TextureQuery, TextureCreator}, ttf::S
 use self::font::FontParams;
 
 pub mod renderer;
-pub mod event_receiver;
+pub mod ui_component;
 pub mod button;
 pub mod ui;
 pub mod font;
+pub mod slider;
 
 pub const TITLE: &'static str = "Rust game";
 pub const WIDTH: u32 = 1920;
 pub const HEIGHT: u32 = 1080;
+
+pub const DEFAULT_FONT: FontParams = FontParams { size: 20, style: sdl2::ttf::FontStyle::NORMAL, color: sdl2::pixels::Color::WHITE };
 
 pub struct SDL2Graphics<'a> {
 	canvas: WindowCanvas,
