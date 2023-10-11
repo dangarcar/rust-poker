@@ -1,6 +1,8 @@
-use crate::core::{action::game_action::GameAction, hand::Hand, rank::Rankable, player::PlayerHand};
+use crate::core::{
+    action::game_action::GameAction, hand::Hand, player::PlayerHand, rank::Rankable,
+};
 
-use super::{GameMessage, GameActionQueue};
+use super::{GameActionQueue, GameMessage};
 
 #[derive(Debug, Default)]
 pub struct TestQueue {
@@ -15,16 +17,19 @@ impl GameActionQueue for TestQueue {
                 self.cards.push(hand);
             }
             GameAction::PlayedBet { action, i, all_in } => {
-                let hand =  self.cards[i];
+                let hand = self.cards[i];
                 let rank = Hand::new_from_hand(hand, &msg.state.community).rank().ok();
-                println!("{i} {:?} with hand {:?} and rank {:?}. {:?}", action, hand, rank, all_in);
-            },
-            GameAction::PlayedFolded { action: _ , i } => {
-                let hand =  self.cards[i];
+                println!(
+                    "{i} {:?} with hand {:?} and rank {:?}. {:?}",
+                    action, hand, rank, all_in
+                );
+            }
+            GameAction::PlayedFolded { action: _, i } => {
+                let hand = self.cards[i];
                 let rank = Hand::new_from_hand(hand, &msg.state.community).rank().ok();
                 println!("Player {i} folded with hand {:?} and rank {:?}", hand, rank);
             }
-            _ => println!("{:?}", msg.action)
+            _ => println!("{:?}", msg.action),
         }
         self.queue.push(msg);
     }

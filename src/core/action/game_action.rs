@@ -1,22 +1,21 @@
-use crate::core::{player::{PlayerHand, PlayerAction}, state::Round, card::Card, error::EngineError, rank::Rank};
+use crate::core::{
+    card::Card,
+    error::EngineError,
+    player::{PlayerAction, PlayerHand},
+    rank::Rank,
+    state::Round,
+};
 
 #[derive(Debug, Clone)]
 pub enum GameAction {
     ///For the initial two cards
-    DealStartHand {
-        hand: PlayerHand,
-        i: usize,
-    },
+    DealStartHand { hand: PlayerHand, i: usize },
 
-    ///The start of the round 
-    RoundChanged {
-        round: Round, 
-    },
+    ///The start of the round
+    RoundChanged { round: Round },
 
     ///Community card dealt
-    DealCommunity {
-        card: Card,
-    },
+    DealCommunity { card: Card },
 
     ///Player bet
     PlayedBet {
@@ -26,16 +25,10 @@ pub enum GameAction {
     },
 
     ///Player folded
-    PlayedFolded {
-        action: PlayerAction,
-        i: usize,
-    },
+    PlayedFolded { action: PlayerAction, i: usize },
 
     ///Player folded
-    ErroredPlay {
-        error: EngineError,
-        i: usize,
-    },
+    ErroredPlay { error: EngineError, i: usize },
 
     ///Showdown
     ShowdownHand {
@@ -45,9 +38,5 @@ pub enum GameAction {
     },
 
     ///Win game
-    WinGame {
-        rank: Rank,
-        i: usize,
-        pot: i32,
-    }
+    WinGame { rank: Rank, i: usize, pot: i32 },
 }

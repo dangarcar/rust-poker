@@ -1,17 +1,17 @@
 use log::warn;
 
 use crate::core::card::*;
+use crate::core::deck::*;
 use crate::core::hand::Hand;
+use crate::core::player::*;
 use crate::core::rank::Rank;
 use crate::core::rank::Rankable;
-use crate::core::player::*;
-use crate::core::deck::*;
 use crate::core::state::*;
 
-use super::error::EngineError;
+use super::action::game_action::GameAction;
 use super::action::GameActionQueue;
 use super::action::GameMessage;
-use super::action::game_action::GameAction;
+use super::error::EngineError;
 
 #[derive(Debug)]
 pub struct Engine {
@@ -23,7 +23,10 @@ pub struct Engine {
 }
 
 impl Engine {
-    pub fn new(players: Vec<Box<dyn Player>>, action_queue: Box<dyn GameActionQueue>) -> Result<Self, EngineError> {
+    pub fn new(
+        players: Vec<Box<dyn Player>>,
+        action_queue: Box<dyn GameActionQueue>,
+    ) -> Result<Self, EngineError> {
         let deck = Deck::default();
         let players_hands = Vec::new();
 
@@ -39,21 +42,27 @@ impl Engine {
             folded_players: Vec::new(),
         };
 
-        Ok(Engine { 
+        Ok(Engine {
             action_queue,
-            deck, 
-            state, 
+            deck,
+            state,
             players_hands,
             players,
         })
     }
 
     pub fn run(mut self, players_money: Vec<i32>, blind: i32) -> Result<Vec<i32>, EngineError> {
-        if self.players.len() != players_money.len() { return Err(EngineError::BadGameError); }
-        else { self.state.players_money = players_money; }
+        if self.players.len() != players_money.len() {
+            return Err(EngineError::BadGameError);
+        } else {
+            self.state.players_money = players_money;
+        }
 
-        if !blind > 0 { return Err(EngineError::SmallBlindError); }
-        else { self.state.bet_amount = blind; }
+        if !blind > 0 {
+            return Err(EngineError::SmallBlindError);
+        } else {
+            self.state.bet_amount = blind;
+        }
 
         loop {
             match self.state.round {
@@ -64,7 +73,7 @@ impl Engine {
                 Round::River => self.river()?,
                 Round::Showdown => self.showdown()?,
 
-                Round::Complete => return Ok(self.state.players_money)
+                Round::Complete => return Ok(self.state.players_money),
             };
         }
     }
@@ -74,13 +83,16 @@ impl Engine {
             self.state.players_bet.push(0);
 
             let hand = (
-                self.deck.take().ok_or(EngineError::BadDeckError)?, 
-                self.deck.take().ok_or(EngineError::BadDeckError)?
+                self.deck.take().ok_or(EngineError::BadDeckError)?,
+                self.deck.take().ok_or(EngineError::BadDeckError)?,
             );
             self.players_hands.push(hand);
             p.give_cards(hand);
 
-            self.action_queue.add(GameMessage::new(GameAction::DealStartHand { hand, i }, self.state.clone()));
+            self.action_queue.add(GameMessage::new(
+                GameAction::DealStartHand { hand, i },
+                self.state.clone(),
+            ));
         }
 
         self.state.round = self.state.round.next();
@@ -88,28 +100,38 @@ impl Engine {
     }
 
     fn preflop(&mut self, start: usize) -> Result<(), EngineError> {
-        self.add_action(GameAction::RoundChanged { round: self.state.round });
-        
+        self.add_action(GameAction::RoundChanged {
+            round: self.state.round,
+        });
+
         for i in start..self.players.len() {
             //If there's only one player, there's no need to play
             if self.state.num_active_players <= 1 {
                 break;
             }
-            
+
             let action = self.players[i].blind(&self.state, i);
 
             match action {
                 Ok(PlayerAction::Call(amount)) => {
-                    let all_in = self.state.bet_amount >= self.state.players_money[i] + self.state.players_bet[i];
+                    let all_in = self.state.bet_amount
+                        >= self.state.players_money[i] + self.state.players_bet[i];
                     self.state.bet(amount, i, all_in)?;
 
-                    self.add_action(GameAction::PlayedBet { action: action.unwrap(), i, all_in });
+                    self.add_action(GameAction::PlayedBet {
+                        action: action.unwrap(),
+                        i,
+                        all_in,
+                    });
                 }
                 Ok(PlayerAction::Fold) => {
                     self.state.folded_players.push(i);
                     self.state.remove_inactive_players();
 
-                    self.add_action(GameAction::PlayedFolded { action: action.unwrap(), i});
+                    self.add_action(GameAction::PlayedFolded {
+                        action: action.unwrap(),
+                        i,
+                    });
                 }
                 Ok(PlayerAction::Raise(_)) => {
                     self.state.folded_players.push(i);
@@ -135,8 +157,10 @@ impl Engine {
     }
 
     fn flop(&mut self) -> Result<(), EngineError> {
-        self.add_action(GameAction::RoundChanged { round: self.state.round });
-        
+        self.add_action(GameAction::RoundChanged {
+            round: self.state.round,
+        });
+
         self.deal_community(3)?;
         self.betting_round()?;
 
@@ -145,8 +169,10 @@ impl Engine {
     }
 
     fn turn(&mut self) -> Result<(), EngineError> {
-        self.add_action(GameAction::RoundChanged { round: self.state.round });
-        
+        self.add_action(GameAction::RoundChanged {
+            round: self.state.round,
+        });
+
         self.deal_community(1)?;
         self.betting_round()?;
 
@@ -155,8 +181,10 @@ impl Engine {
     }
 
     fn river(&mut self) -> Result<(), EngineError> {
-        self.add_action(GameAction::RoundChanged { round: self.state.round });
-        
+        self.add_action(GameAction::RoundChanged {
+            round: self.state.round,
+        });
+
         self.deal_community(1)?;
         self.betting_round()?;
 
@@ -165,8 +193,10 @@ impl Engine {
     }
 
     fn showdown(&mut self) -> Result<(), EngineError> {
-        self.add_action(GameAction::RoundChanged { round: self.state.round });
-        
+        self.add_action(GameAction::RoundChanged {
+            round: self.state.round,
+        });
+
         let mut winner = (Rank::HighCard(Value::Two), usize::MAX); //The worst possible rank
         let mut pos = self.state.active_players.clone();
         pos.append(&mut self.state.players_all_in);
@@ -180,11 +210,19 @@ impl Engine {
                 winner.0 = rank;
             }
 
-            self.add_action(GameAction::ShowdownHand { hand: self.players_hands[i], rank, i });
+            self.add_action(GameAction::ShowdownHand {
+                hand: self.players_hands[i],
+                rank,
+                i,
+            });
         }
 
         let pot = self.state.award(winner.1);
-        self.add_action(GameAction::WinGame { rank: winner.0, i: winner.1, pot });
+        self.add_action(GameAction::WinGame {
+            rank: winner.0,
+            i: winner.1,
+            pot,
+        });
 
         self.state.round = self.state.round.next();
         Ok(())
@@ -207,24 +245,37 @@ impl Engine {
 
                 match action {
                     Ok(PlayerAction::Raise(amount)) => {
-                        let all_in = self.state.bet_amount == self.state.players_money[i] + self.state.players_bet[i];
+                        let all_in = self.state.bet_amount
+                            == self.state.players_money[i] + self.state.players_bet[i];
                         self.state.bet(amount, i, all_in)?;
 
                         raising = true;
 
-                        self.add_action(GameAction::PlayedBet { action: action.unwrap(), i, all_in});
+                        self.add_action(GameAction::PlayedBet {
+                            action: action.unwrap(),
+                            i,
+                            all_in,
+                        });
                     }
                     Ok(PlayerAction::Call(amount)) => {
-                        let all_in = self.state.bet_amount >= self.state.players_money[i] + self.state.players_bet[i];
+                        let all_in = self.state.bet_amount
+                            >= self.state.players_money[i] + self.state.players_bet[i];
                         self.state.bet(amount, i, all_in)?;
 
-                        self.add_action(GameAction::PlayedBet { action: action.unwrap(), i, all_in });
+                        self.add_action(GameAction::PlayedBet {
+                            action: action.unwrap(),
+                            i,
+                            all_in,
+                        });
                     }
                     Ok(PlayerAction::Fold) => {
                         self.state.folded_players.push(i);
                         self.state.remove_inactive_players();
 
-                        self.add_action(GameAction::PlayedFolded { action: action.unwrap(), i});
+                        self.add_action(GameAction::PlayedFolded {
+                            action: action.unwrap(),
+                            i,
+                        });
                     }
                     Err(e) => {
                         warn!("{e}");
@@ -232,12 +283,12 @@ impl Engine {
                         self.state.folded_players.push(i);
                         self.state.remove_inactive_players();
 
-                        self.add_action(GameAction::ErroredPlay { error: e, i});
+                        self.add_action(GameAction::ErroredPlay { error: e, i });
                     }
                 }
             }
         }
-        
+
         Ok(())
     }
 
@@ -254,20 +305,28 @@ impl Engine {
 
     #[inline(always)]
     fn add_action(&mut self, action: GameAction) {
-        self.action_queue.add(GameMessage::new(action, self.state.clone()));
+        self.action_queue
+            .add(GameMessage::new(action, self.state.clone()));
     }
 
-    pub fn run_from_game_state(players: Vec<Box<dyn Player>>, action_queue: Box<dyn GameActionQueue>, state: GameState, hand: PlayerHand, player_idx: usize) -> Result<Vec<i32>, EngineError> {
-        let deck = Deck::new_without_cards(&[&[hand.0, hand.1], state.community.as_slice()].concat());
+    pub fn run_from_game_state(
+        players: Vec<Box<dyn Player>>,
+        action_queue: Box<dyn GameActionQueue>,
+        state: GameState,
+        hand: PlayerHand,
+        player_idx: usize,
+    ) -> Result<Vec<i32>, EngineError> {
+        let deck =
+            Deck::new_without_cards(&[&[hand.0, hand.1], state.community.as_slice()].concat());
         let players_hands = Vec::new();
 
-        let mut engine = Engine { 
+        let mut engine = Engine {
             action_queue,
-            deck, 
-            state, 
+            deck,
+            state,
             players_hands,
             players,
-        }; 
+        };
 
         for i in 0..engine.players.len() {
             if i == player_idx {
@@ -276,8 +335,8 @@ impl Engine {
                 engine.add_action(GameAction::DealStartHand { hand, i });
             } else {
                 let h = (
-                    engine.deck.take().ok_or(EngineError::BadDeckError)?, 
-                    engine.deck.take().ok_or(EngineError::BadDeckError)?
+                    engine.deck.take().ok_or(EngineError::BadDeckError)?,
+                    engine.deck.take().ok_or(EngineError::BadDeckError)?,
                 );
                 engine.players_hands.push(h);
                 engine.players[i].give_cards(h);
@@ -286,11 +345,11 @@ impl Engine {
         }
 
         match engine.state.round.clone() {
-            Round::Flop|Round::Turn|Round::River => {
+            Round::Flop | Round::Turn | Round::River => {
                 engine.betting_round()?;
                 engine.state.round = engine.state.round.next();
             }
-            _ => ()
+            _ => (),
         }
 
         loop {
@@ -302,7 +361,7 @@ impl Engine {
                 Round::River => engine.river()?,
                 Round::Showdown => engine.showdown()?,
 
-                Round::Complete => return Ok(engine.state.players_money)
+                Round::Complete => return Ok(engine.state.players_money),
             };
         }
     }
@@ -310,7 +369,10 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
-    use crate::{core::{player::*, action::test_queue::EmptyQueue}, core::action::test_queue::TestQueue};
+    use crate::{
+        core::action::test_queue::TestQueue,
+        core::{action::test_queue::EmptyQueue, player::*},
+    };
 
     use super::*;
 
@@ -333,14 +395,14 @@ mod tests {
 
         let engine = Engine::new(players, Box::new(TestQueue::default())).unwrap();
 
-        let new_stacks =  engine.run(old_stacks.clone(), 1).unwrap();
+        let new_stacks = engine.run(old_stacks.clone(), 1).unwrap();
 
         println!("{:?}", old_stacks);
         println!("{:?}", new_stacks);
     }
 
     #[test]
-    fn debug_engine() -> Result<(), EngineError>{
+    fn debug_engine() -> Result<(), EngineError> {
         INIT.call_once(env_logger::init);
 
         let mut players: Vec<Box<dyn Player>> = Vec::new();
@@ -353,7 +415,7 @@ mod tests {
 
         let engine = Engine::new(players, Box::new(TestQueue::default()))?;
 
-        let new_stacks =  engine.run(old_stacks.clone(), 1)?;
+        let new_stacks = engine.run(old_stacks.clone(), 1)?;
 
         println!("{:?}", old_stacks);
         println!("{:?}", new_stacks);
@@ -384,7 +446,7 @@ mod tests {
                 ];
                 let engine = Engine::new(players, Box::new(EmptyQueue::default()))?;
 
-                stacks =  engine.run(stacks.clone(), 1)?;
+                stacks = engine.run(stacks.clone(), 1)?;
             }
 
             for i in 0..stacks.len() {
@@ -406,15 +468,15 @@ mod tests {
     fn run_from_started_game() {
         INIT.call_once(env_logger::init);
 
-        let state = crate::core::state::GameState { 
-            round: Round::Preflop, 
-            community: vec![], 
-            players_bet: vec![1, 0, 0, 0], 
-            players_money: vec![0, 100, 100, 100], 
-            bet_amount: 1, 
-            players_all_in: vec![0], 
+        let state = crate::core::state::GameState {
+            round: Round::Preflop,
+            community: vec![],
+            players_bet: vec![1, 0, 0, 0],
+            players_money: vec![0, 100, 100, 100],
+            bet_amount: 1,
+            players_all_in: vec![0],
             folded_players: vec![],
-            num_active_players: 3, 
+            num_active_players: 3,
             active_players: vec![1, 2, 3],
         };
         let players = vec![
@@ -423,10 +485,26 @@ mod tests {
             Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
             Box::new(dummy::DummyPlayer::default()) as Box<dyn Player>,
         ];
-        let hand = (Card{ suit: Suit::Club, value: Value::Ace }, Card{ suit: Suit::Spade, value: Value::Ace });
+        let hand = (
+            Card {
+                suit: Suit::Club,
+                value: Value::Ace,
+            },
+            Card {
+                suit: Suit::Spade,
+                value: Value::Ace,
+            },
+        );
         let player_idx = 1;
 
-        let stacks = Engine::run_from_game_state( players, Box::new(TestQueue::default()), state, hand, player_idx).unwrap();
+        let stacks = Engine::run_from_game_state(
+            players,
+            Box::new(TestQueue::default()),
+            state,
+            hand,
+            player_idx,
+        )
+        .unwrap();
         println!("{stacks:?}");
     }
 }

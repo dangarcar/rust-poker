@@ -1,45 +1,106 @@
-use sdl2::{rect::Rect, pixels::Color, event::Event, mouse::MouseButton};
+use sdl2::{event::Event, mouse::MouseButton, pixels::Color, rect::Rect};
 
-use super::{ui_component::{EventReceiver, Drawable}, SDL2Graphics, font::FontParams, DEFAULT_FONT};
+use super::{
+    font::FontParams,
+    ui_component::{Drawable, EventReceiver},
+    SDL2Graphics, DEFAULT_FONT,
+};
 
-use sdl2::gfx::primitives::*;
+#[derive(Debug, Clone, Copy)]
+pub struct ButtonColor {
+    pub color: Color,
+    pub hover_color: Color,
+    pub pressed_color: Color,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum ButtonState {
+    Normal,
+    Hovered,
+    Pressed,
+}
 
 pub struct Button {
     text: String,
-    is_hovered: bool,
     bounds: Rect,
-    color: Color,
-    hover_color: Color,
+    color: ButtonColor,
     font_params: FontParams,
+
+    state: ButtonState,
 }
 
-impl EventReceiver for Button {
-    fn handle_event(&mut self, event: &sdl2::event::Event) {
+impl EventReceiver<ButtonState> for Button {
+    fn handle_event(&mut self, event: &sdl2::event::Event) -> ButtonState {
         match event {
-            Event::MouseMotion {x, y, ..} => {
-                self.is_hovered = self.bounds.contains_point((*x, *y));
-            }
-            Event::MouseButtonDown {mouse_btn, x, y, .. } => {
-                if *mouse_btn == MouseButton::Left && self.bounds.contains_point((*x, *y)) {
-                    println!("Button pressed");
+            Event::MouseMotion { x, y, .. } => {
+                if self.bounds.contains_point((*x, *y)) {
+                    self.state = ButtonState::Hovered;
+                } else {
+                    self.state = ButtonState::Normal;
                 }
             }
-            _ => {}
+            Event::MouseButtonDown {
+                mouse_btn, x, y, ..
+            } => {
+                if *mouse_btn == MouseButton::Left && self.bounds.contains_point((*x, *y)) {
+                    self.state = ButtonState::Pressed;
+                }
+            }
+            Event::MouseButtonUp {
+                mouse_btn, x, y, ..
+            } => {
+                if *mouse_btn == MouseButton::Left && self.bounds.contains_point((*x, *y)) {
+                    self.state = ButtonState::Hovered;
+                }
+            }
+            _ => {
+                self.state = ButtonState::Normal;
+            }
         }
+
+        self.state
     }
 }
 
 impl Drawable for Button {
     fn draw(&self, gfx: &mut SDL2Graphics) -> Result<(), String> {
-        if self.is_hovered {
-            gfx.canvas.set_draw_color(self.hover_color);
-        }
-        else {
-            gfx.canvas.set_draw_color(self.color);
+        match self.state {
+            ButtonState::Normal => gfx.canvas.set_draw_color(self.color.color),
+            ButtonState::Hovered => gfx.canvas.set_draw_color(self.color.hover_color),
+            ButtonState::Pressed => gfx.canvas.set_draw_color(self.color.pressed_color),
         }
 
-        let r = self.bounds;
-        gfx.canvas.rounded_box(r.x as i16, r.y as i16, r.x as i16+r.w as i16, r.y as i16+r.h as i16, 34, gfx.canvas.draw_color())?;
+        gfx.canvas.fill_rect(self.bounds)?;
+
+        let w = 20;
+
+        gfx.canvas.set_draw_color(Color::RGBA(255, 255, 255, 50));
+        gfx.canvas.fill_rect(Rect::new(
+            self.bounds.left(),
+            self.bounds.top(),
+            w as u32,
+            self.bounds.height(),
+        ))?;
+        gfx.canvas.fill_rect(Rect::new(
+            self.bounds.left(),
+            self.bounds.top(),
+            self.bounds.width(),
+            w as u32,
+        ))?;
+
+        gfx.canvas.set_draw_color(Color::RGBA(0, 0, 0, 50));
+        gfx.canvas.fill_rect(Rect::new(
+            self.bounds.right() - w,
+            self.bounds.y,
+            w as u32,
+            self.bounds.height(),
+        ))?;
+        gfx.canvas.fill_rect(Rect::new(
+            self.bounds.left(),
+            self.bounds.bottom() - w,
+            self.bounds.width(),
+            w as u32,
+        ))?;
 
         gfx.draw_string(&self.text, self.font_params, self.bounds.center(), true);
 
@@ -48,13 +109,18 @@ impl Drawable for Button {
 }
 
 impl Button {
-    pub fn new(text: String, bounds: Rect, color: Color, hover_color: Color) -> Self {
-        Button { 
-            text, 
-            is_hovered: false, 
-            bounds, color, 
-            hover_color, 
-            font_params: DEFAULT_FONT ,
+    pub fn new(text: String, bounds: Rect, color: ButtonColor) -> Self {
+        Button {
+            text,
+            bounds,
+            color,
+
+            font_params: DEFAULT_FONT,
+            state: ButtonState::Normal,
         }
+    }
+
+    pub fn set_font(&mut self, f: FontParams) {
+        self.font_params = f;
     }
 }

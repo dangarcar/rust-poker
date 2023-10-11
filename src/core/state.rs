@@ -6,9 +6,9 @@ use super::error::EngineError;
 pub enum Round {
     Starting,
     Preflop, //Bet
-    Flop, //Bet
-    Turn, //Bet
-    River, //Bet
+    Flop,    //Bet
+    Turn,    //Bet
+    River,   //Bet
     Showdown,
     Complete,
 }
@@ -34,7 +34,7 @@ pub struct GameState {
 
     pub players_bet: Vec<i32>,
     pub players_money: Vec<i32>,
-    
+
     pub bet_amount: i32,
     pub players_all_in: Vec<usize>,
 
@@ -51,13 +51,12 @@ impl GameState {
         if all_in {
             self.players_all_in.push(player_idx);
             self.num_active_players -= 1;
-            
+
             self.players_bet[player_idx] += self.players_money[player_idx];
             self.players_money[player_idx] = 0;
 
             self.remove_inactive_players();
-        }
-        else {
+        } else {
             self.players_bet[player_idx] += amount;
             self.players_money[player_idx] -= amount;
         }
@@ -67,11 +66,15 @@ impl GameState {
         Ok(())
     }
 
-    fn validate_bet(&self, amount: i32, player_idx: usize, all_in: bool) -> Result<(), EngineError> {
+    fn validate_bet(
+        &self,
+        amount: i32,
+        player_idx: usize,
+        all_in: bool,
+    ) -> Result<(), EngineError> {
         if self.players_money[player_idx] < amount && !all_in {
             Err(EngineError::NotEnoughMoney)
-        }
-        else {
+        } else {
             Ok(())
         }
     }
@@ -87,7 +90,8 @@ impl GameState {
     }
 
     pub fn remove_inactive_players(&mut self) {
-        self.active_players.retain(|i| !self.folded_players.contains(i) && !self.players_all_in.contains(i));
+        self.active_players
+            .retain(|i| !self.folded_players.contains(i) && !self.players_all_in.contains(i));
         self.num_active_players = self.active_players.len() as i32;
     }
 }

@@ -1,6 +1,6 @@
 use rand::{thread_rng, Rng};
 
-use crate::core::{state::GameState, error::EngineError, hand::Hand, rank::Rankable};
+use crate::core::{error::EngineError, hand::Hand, rank::Rankable, state::GameState};
 
 use super::*;
 
@@ -13,7 +13,6 @@ const FOLD_PROB: f64 = 0.2;
 const RAISE_PROB: f64 = 0.1;
 
 impl Player for DummyPlayer {
-
     fn play(&mut self, state: &GameState, i: usize) -> Result<PlayerAction, EngineError> {
         let mut rng = thread_rng();
 
@@ -28,15 +27,13 @@ impl Player for DummyPlayer {
 
         if rng.gen_bool(fold_prob) {
             return Ok(PlayerAction::Fold);
-        }
-        else if rng.gen_bool(raise_prob) && cash > diff {
+        } else if rng.gen_bool(raise_prob) && cash > diff {
             let x: f64 = rng.gen();
-            let delta = (cash-diff) as f64 * x*x*x;
-            let raised = if delta <= 1.0 {1} else {delta as i32};
+            let delta = (cash - diff) as f64 * x * x * x;
+            let raised = if delta <= 1.0 { 1 } else { delta as i32 };
 
             Ok(PlayerAction::Raise(diff + raised))
-        }
-        else {
+        } else {
             Ok(PlayerAction::Call(diff))
         }
     }
@@ -56,8 +53,7 @@ impl Player for DummyPlayer {
 
         if fold || cash < state.bet_amount {
             return Ok(PlayerAction::Fold);
-        }
-        else {
+        } else {
             Ok(PlayerAction::Call(state.bet_amount))
         }
     }

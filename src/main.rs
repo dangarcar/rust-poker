@@ -13,19 +13,24 @@ fn main() {
 
     let sdl_context = sdl2::init().expect("Couldn't create SDL2 context");
     let ttf = sdl2::ttf::init().expect("Couldn't create text context");
-    let video_subsystem = sdl_context.video().expect("Couldn't create video subsystem");
-    let _image_context = sdl2::image::init(sdl2::image::InitFlag::PNG).expect("Couldn't initialize the image context");
+    let video_subsystem = sdl_context
+        .video()
+        .expect("Couldn't create video subsystem");
+    let _image_context = sdl2::image::init(sdl2::image::InitFlag::PNG)
+        .expect("Couldn't initialize the image context");
 
-    let font_path = Path::new("assets/Roboto-Regular.ttf");
+    let font_path = Path::new("assets/RetroGaming.ttf");
     let bg_path = Path::new("assets/vecteezy_poker-table-green-cloth-on-dark-background-vector-illustration_6325236.jpg");
 
-    let window = video_subsystem.window(graphic::TITLE, graphic::WIDTH, graphic::HEIGHT)
+    let window = video_subsystem
+        .window(graphic::TITLE, graphic::WIDTH, graphic::HEIGHT)
         //.fullscreen_desktop()
         .fullscreen()
         .position_centered()
         .build()
         .expect("Couldn't create window");
-    let canvas = window.into_canvas()
+    let canvas = window
+        .into_canvas()
         .accelerated()
         //.present_vsync()
         .build()
@@ -35,7 +40,9 @@ fn main() {
 
     let mut game = Game::new();
 
-    let mut event_pump = sdl_context.event_pump().expect("Couldn't create the event loop");
+    let mut event_pump = sdl_context
+        .event_pump()
+        .expect("Couldn't create the event loop");
     'running: loop {
         //Event update
         for event in event_pump.poll_iter() {

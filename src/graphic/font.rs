@@ -1,7 +1,11 @@
-use sdl2::ttf;
 use sdl2::pixels;
+use sdl2::ttf;
 
-pub const NORMAL_16_BLACK: FontParams = FontParams{ size:16, style:ttf::FontStyle::NORMAL, color:pixels::Color::BLACK }; 
+pub const NORMAL_16_BLACK: FontParams = FontParams {
+    size: 16,
+    style: ttf::FontStyle::NORMAL,
+    color: pixels::Color::BLACK,
+};
 
 #[derive(Debug, Clone, Copy)]
 pub struct FontParams {

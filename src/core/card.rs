@@ -6,12 +6,7 @@ pub enum Suit {
     Spade,
 }
 
-pub const SUITS: [Suit; 4] = [
-    Suit::Club,
-    Suit::Diamond,
-    Suit::Heart,
-    Suit::Spade,
-];
+pub const SUITS: [Suit; 4] = [Suit::Club, Suit::Diamond, Suit::Heart, Suit::Spade];
 
 #[derive(PartialEq, PartialOrd, Eq, Ord, Debug, Clone, Copy, Hash)]
 pub enum Value {

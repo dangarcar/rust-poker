@@ -15,7 +15,7 @@ impl Deck {
 
         for suit in card::SUITS {
             for value in card::VALUES {
-                v.push(card::Card{ suit, value });
+                v.push(card::Card { suit, value });
             }
         }
 
@@ -29,7 +29,7 @@ impl Deck {
 
         for suit in card::SUITS {
             for value in card::VALUES {
-                let c = card::Card{ suit, value };
+                let c = card::Card { suit, value };
                 if !cards.contains(&c) {
                     v.push(c);
                 }
@@ -60,8 +60,14 @@ mod tests {
     #[test]
     fn cards() {
         let c = vec![
-            Card{suit:crate::core::card::Suit::Club, value:crate::core::card::Value::Ace}, 
-            Card{suit:crate::core::card::Suit::Diamond, value:crate::core::card::Value::Ace}
+            Card {
+                suit: crate::core::card::Suit::Club,
+                value: crate::core::card::Value::Ace,
+            },
+            Card {
+                suit: crate::core::card::Suit::Diamond,
+                value: crate::core::card::Value::Ace,
+            },
         ];
         let deck = Deck::new_without_cards(&c);
         println!("{:?}", deck);
