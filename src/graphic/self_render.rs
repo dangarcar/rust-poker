@@ -58,16 +58,25 @@ impl Drawable for SelfController {
         }
 
         let mut f = DEFAULT_FONT;
-        f.size = 32;
+        f.size = 36;
+        if !self.state.name.is_empty() {
+            gfx.draw_string(
+                &self.state.name,
+                f,
+                Point::new(250, self.bounds.y + 50),
+                false,
+            );
+        }
 
+        f.size = 24;
         let t = format!("Actual money: {}€", self.state.cash);
-        gfx.draw_string(&t, f, Point::new(250, self.bounds.y + 50), false);
-
-        let t = format!("Actual bet: {}€", self.state.bet);
         gfx.draw_string(&t, f, Point::new(250, self.bounds.y + 100), false);
 
+        let t = format!("Actual bet: {}€", self.state.bet);
+        gfx.draw_string(&t, f, Point::new(250, self.bounds.y + 130), false);
+
         let t = format!("Raise {}€ more", self.to_raise());
-        gfx.draw_string(&t, f, Point::new(250, self.bounds.y + 150), false);
+        gfx.draw_string(&t, f, Point::new(250, self.bounds.y + 160), false);
 
         Ok(())
     }

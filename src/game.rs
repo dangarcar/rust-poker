@@ -4,6 +4,7 @@ use sdl2::keyboard::Keycode;
 use crate::graphic::ui;
 use crate::graphic::SDL2Graphics;
 
+pub mod player_state;
 pub mod self_controller;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -20,8 +21,12 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Self {
+        let mut ui = ui::UI::new();
+
+        ui.player_controller.state.name = "Test name".to_string();
+
         Game {
-            ui: ui::UI::new(),
+            ui,
             state: GameState::Start,
         }
     }
@@ -42,7 +47,6 @@ impl Game {
             },
             _ => {}
         }
-
         self.ui.handle_event(event)?;
         Ok(())
     }

@@ -14,6 +14,7 @@ use self::font::FontParams;
 
 pub mod button;
 pub mod font;
+pub mod player_render;
 pub mod renderer;
 pub mod self_render;
 pub mod slider;

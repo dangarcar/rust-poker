@@ -1,22 +1,14 @@
 use sdl2::{pixels::Color, rect::Rect};
 
-use crate::{
-    core::player::PlayerHand,
-    graphic::{
-        button::{Button, ButtonState},
-        self_render::{CALL_COLOR, FOLD_COLOR, RAISE_COLOR},
-        slider::Slider,
-        ui_component::EventReceiver,
-        HEIGHT, WIDTH,
-    },
+use crate::graphic::{
+    button::{Button, ButtonState},
+    self_render::{CALL_COLOR, FOLD_COLOR, RAISE_COLOR},
+    slider::Slider,
+    ui_component::EventReceiver,
+    HEIGHT, WIDTH,
 };
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct PlayerState {
-    pub hand: Option<PlayerHand>,
-    pub cash: i32,
-    pub bet: i32,
-}
+use super::player_state::{PlayerAction, PlayerState};
 
 pub struct SelfController {
     pub bounds: Rect,
@@ -28,13 +20,6 @@ pub struct SelfController {
     pub image_bounds: Rect,
 
     pub state: PlayerState,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum PlayerAction {
-    Fold,
-    Call,
-    Raise(i32),
 }
 
 impl EventReceiver<Option<PlayerAction>> for SelfController {
