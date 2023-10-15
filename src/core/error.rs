@@ -18,4 +18,6 @@ pub enum EngineError {
     SmallBlindError,
     #[error("The initial parameters of this game aren't correct")]
     BadGameError,
+    #[error("The communication to my player couldn't be done")]
+    RecvMyselfError,
 }

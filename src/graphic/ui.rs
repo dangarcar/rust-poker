@@ -16,7 +16,8 @@ pub struct UI {
 
 impl UI {
     pub fn new() -> Self {
-        let places: &[Point; 6] = &[
+        let places: &[Point; 7] = &[
+            Point::new(960, 250),
             Point::new(400, 540),
             Point::new(1520, 540),
             Point::new(500, 300),
@@ -25,19 +26,8 @@ impl UI {
             Point::new(1420, 780),
         ];
 
-        let players = places
-            .iter()
-            .map(|p| {
-                PlayerRenderer::new(
-                    *p,
-                    PlayerState {
-                        name: String::from("Felipe"),
-                        hand: None,
-                        cash: 1000,
-                        bet: 10,
-                    },
-                )
-            })
+        let players = places.iter()
+            .map(|&p| PlayerRenderer::new(p,PlayerState::default()) )
             .collect_vec();
 
         UI {

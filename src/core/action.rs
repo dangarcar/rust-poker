@@ -5,6 +5,7 @@ use game_action::GameAction;
 use super::state::GameState;
 
 pub mod game_action;
+pub mod mpsc_queue;
 pub mod test_queue;
 
 #[derive(Debug, Clone)]

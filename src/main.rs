@@ -39,6 +39,8 @@ fn main() {
     let mut gfx = graphic::SDL2Graphics::from(canvas, ttf, font_path, bg_path);
 
     let mut game = Game::new();
+    game.default_players();
+    game.start();
 
     let mut event_pump = sdl_context
         .event_pump()
