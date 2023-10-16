@@ -12,9 +12,11 @@ use crate::core::engine::Engine;
 use crate::core::player::montecarlo::MontecarloPlayer;
 use crate::core::player::myself::MyselfPlayer;
 use crate::core::player::Player;
-use crate::core::player::PlayerAction;
-use crate::core::state;
+use crate::core::state::GameState;
+use crate::game::player_state::PlayerAction;
 use crate::graphic::ui;
+use crate::graphic::ui_component::Drawable;
+use crate::graphic::ui_component::EventReceiver;
 use crate::graphic::SDL2Graphics;
 
 use self::player_state::PlayerState;
@@ -23,7 +25,7 @@ pub mod player_state;
 pub mod self_controller;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum GameState {
+pub enum GamePhase {
     Playing,
     Start,
     Pause,
@@ -31,12 +33,12 @@ pub enum GameState {
 
 pub struct Game {
     ui: ui::UI,
-    state: GameState,
+    phase: GamePhase,
     players: Option<Vec<PlayerState>>,
     myself: usize,
     game_rx: Option<mpsc::Receiver<GameMessage>>,
     player_tx: Option<mpsc::Sender<PlayerAction>>,
-    game_state: Option<state::GameState>,
+    game_state: Option<GameState>,
 }
 
 impl Game {
@@ -45,7 +47,7 @@ impl Game {
 
         Game {
             ui,
-            state: GameState::Start,
+            phase: GamePhase::Start,
             players: None,
             myself: 0,
             game_rx: None,
@@ -60,23 +62,29 @@ impl Game {
                 keycode: Some(key), ..
             } => match key {
                 Keycode::P => {
-                    if self.state == GameState::Pause {
-                        self.state = GameState::Playing;
-                    } else if self.state == GameState::Playing {
-                        self.state = GameState::Pause;
+                    if self.phase == GamePhase::Pause {
+                        self.phase = GamePhase::Playing;
+                    } else if self.phase == GamePhase::Playing {
+                        self.phase = GamePhase::Pause;
                     }
                 }
                 _ => {}
             },
             _ => {}
         }
-        self.ui.handle_event(event)?;
+
+        if let Some(act) = self.ui.handle_event(event)? {
+            if let Some(tx) = &self.player_tx {
+                tx.send(act).map_err(|e| e.to_string())?;
+            }
+        }
+
         Ok(())
     }
 
     pub fn update(&mut self) {
         if let Some(rx) = &self.game_rx {
-            match rx.try_recv(){
+            match rx.try_recv() {
                 Ok(msg) => self.update_player_state(msg),
                 Err(_) => {}
             }
@@ -84,21 +92,24 @@ impl Game {
     }
 
     pub fn render(&self, gfx: &mut SDL2Graphics) -> Result<(), String> {
-        self.ui.render(gfx)?;
+        self.ui.draw(gfx)?;
         Ok(())
     }
 
     pub fn default_players(&mut self) {
         let mut rng = rand::thread_rng();
-        self.players = Some(vec![
-            PlayerState {
+        self.players = Some(Vec::new());
+        for _ in 0..8 {
+            self.players.as_mut().unwrap().push(PlayerState {
                 name: String::from_utf8(vec![rng.gen_range('1'..'z') as u8; 7]).unwrap(),
                 bet: 0,
                 cash: 1000,
                 hand: None,
-            };
-            8
-        ]);
+                can_raise: false,
+                folded: false,
+            });
+        }
+
         self.myself = rng.gen_range(0..8);
     }
 
@@ -111,6 +122,7 @@ impl Game {
 
         let this = self.myself;
 
+        //Start engine thread
         if let Some(player_states) = self.players.clone() {
             thread::spawn(move || {
                 let queue = Box::new(MpscQueue::new(game_tx));
@@ -125,6 +137,13 @@ impl Game {
                 let players_money = player_states.iter().map(|p| p.cash).collect_vec();
                 engine.run(players_money, 1).unwrap();
             });
+        }
+
+        //Start UI
+        if let Some(player_states) = &self.players {
+            self.ui
+                .start(player_states, self.myself)
+                .expect("Couldn't start the UI");
         }
     }
 

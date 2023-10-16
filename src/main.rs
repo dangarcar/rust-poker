@@ -24,15 +24,14 @@ fn main() {
 
     let window = video_subsystem
         .window(graphic::TITLE, graphic::WIDTH, graphic::HEIGHT)
-        //.fullscreen_desktop()
         .fullscreen()
         .position_centered()
         .build()
         .expect("Couldn't create window");
+
     let canvas = window
         .into_canvas()
         .accelerated()
-        //.present_vsync()
         .build()
         .expect("Couldn't create canvas");
 

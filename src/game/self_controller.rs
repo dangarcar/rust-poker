@@ -26,19 +26,31 @@ impl EventReceiver<Option<PlayerAction>> for SelfController {
     fn handle_event(&mut self, event: &sdl2::event::Event) -> Option<PlayerAction> {
         self.slider.handle_event(event);
 
-        if self.raise_btn.handle_event(event) == ButtonState::Pressed {
-            return Some(PlayerAction::Raise(self.to_raise()));
+        let raise =
+            self.raise_btn.handle_event(event) == ButtonState::Pressed && self.state.can_raise;
+        let call = self.call_btn.handle_event(event) == ButtonState::Pressed;
+        let fold = self.fold_btn.handle_event(event) == ButtonState::Pressed;
+
+        if !self.state.can_raise {
+            self.raise_btn.set_inactive();
         }
 
-        if self.call_btn.handle_event(event) == ButtonState::Pressed {
-            return Some(PlayerAction::Call);
+        if self.state.folded {
+            self.raise_btn.set_inactive();
+            self.call_btn.set_inactive();
+            self.fold_btn.set_inactive();
+            return None;
         }
 
-        if self.fold_btn.handle_event(event) == ButtonState::Pressed {
-            return Some(PlayerAction::Fold);
+        if raise {
+            Some(PlayerAction::Raise(self.to_raise()))
+        } else if call {
+            Some(PlayerAction::Call)
+        } else if fold {
+            Some(PlayerAction::Fold)
+        } else {
+            None
         }
-
-        None
     }
 }
 

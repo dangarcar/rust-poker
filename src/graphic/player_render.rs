@@ -8,11 +8,9 @@ use crate::game::player_state::PlayerState;
 use super::{ui_component::Drawable, DEFAULT_FONT};
 
 pub struct PlayerRenderer {
-    pub bounds: Rect,
-
-    pub image_bounds: Rect,
-
-    pub state: PlayerState,
+    bounds: Rect,
+    image_bounds: Rect,
+    state: PlayerState,
 }
 
 impl PlayerRenderer {

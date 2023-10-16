@@ -17,18 +17,21 @@ pub const RAISE_COLOR: ButtonColor = ButtonColor {
     color: Color::RGB(76, 189, 45),
     hover_color: Color::RGB(52, 128, 31),
     pressed_color: Color::RGB(31, 77, 18),
+    inactive_color: Color::RGB(118, 128, 115),
 };
 
 pub const CALL_COLOR: ButtonColor = ButtonColor {
     color: Color::RGB(204, 191, 47),
     hover_color: Color::RGB(128, 120, 29),
     pressed_color: Color::RGB(77, 72, 18),
+    inactive_color: Color::RGB(128, 125, 102),
 };
 
 pub const FOLD_COLOR: ButtonColor = ButtonColor {
     color: Color::RGB(189, 47, 42),
     hover_color: Color::RGB(128, 31, 28),
     pressed_color: Color::RGB(77, 19, 17),
+    inactive_color: Color::RGB(128, 115, 115),
 };
 
 impl Drawable for SelfController {

@@ -74,7 +74,9 @@ impl<'a> SDL2Graphics<'a> {
     }
 
     pub fn draw_string(&mut self, txt: &str, params: FontParams, p: Point, centered: bool) {
-        if txt.is_empty() {return}
+        if txt.is_empty() {
+            return;
+        }
 
         let texture_creator = self.canvas.texture_creator();
         let texture = self.str_to_texture(txt, params, &texture_creator);

@@ -11,6 +11,7 @@ pub struct ButtonColor {
     pub color: Color,
     pub hover_color: Color,
     pub pressed_color: Color,
+    pub inactive_color: Color,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -18,6 +19,7 @@ pub enum ButtonState {
     Normal,
     Hovered,
     Pressed,
+    Inactive,
 }
 
 pub struct Button {
@@ -65,6 +67,7 @@ impl EventReceiver<ButtonState> for Button {
 impl Drawable for Button {
     fn draw(&self, gfx: &mut SDL2Graphics) -> Result<(), String> {
         match self.state {
+            ButtonState::Inactive => gfx.canvas.set_draw_color(self.color.inactive_color),
             ButtonState::Normal => gfx.canvas.set_draw_color(self.color.color),
             ButtonState::Hovered => gfx.canvas.set_draw_color(self.color.hover_color),
             ButtonState::Pressed => gfx.canvas.set_draw_color(self.color.pressed_color),
@@ -72,34 +75,34 @@ impl Drawable for Button {
 
         gfx.canvas.fill_rect(self.bounds)?;
 
-        let w = 20;
+        const W: i32 = 20;
 
         gfx.canvas.set_draw_color(Color::RGBA(255, 255, 255, 50));
         gfx.canvas.fill_rect(Rect::new(
             self.bounds.left(),
             self.bounds.top(),
-            w as u32,
+            W as u32,
             self.bounds.height(),
         ))?;
         gfx.canvas.fill_rect(Rect::new(
             self.bounds.left(),
             self.bounds.top(),
             self.bounds.width(),
-            w as u32,
+            W as u32,
         ))?;
 
         gfx.canvas.set_draw_color(Color::RGBA(0, 0, 0, 50));
         gfx.canvas.fill_rect(Rect::new(
-            self.bounds.right() - w,
+            self.bounds.right() - W,
             self.bounds.y,
-            w as u32,
+            W as u32,
             self.bounds.height(),
         ))?;
         gfx.canvas.fill_rect(Rect::new(
             self.bounds.left(),
-            self.bounds.bottom() - w,
+            self.bounds.bottom() - W,
             self.bounds.width(),
-            w as u32,
+            W as u32,
         ))?;
 
         gfx.draw_string(&self.text, self.font_params, self.bounds.center(), true);
@@ -122,5 +125,9 @@ impl Button {
 
     pub fn set_font(&mut self, f: FontParams) {
         self.font_params = f;
+    }
+
+    pub fn set_inactive(&mut self) {
+        self.state = ButtonState::Inactive;
     }
 }

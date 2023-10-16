@@ -6,6 +6,8 @@ pub struct PlayerState {
     pub hand: Option<PlayerHand>,
     pub cash: i32,
     pub bet: i32,
+    pub can_raise: bool,
+    pub folded: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
