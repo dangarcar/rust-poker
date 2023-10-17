@@ -97,4 +97,12 @@ impl Slider {
         self.current = f32::max(0.0, self.current);
         self.current = f32::min(1.0, self.current);
     }
+
+    pub fn reset(&mut self) {
+        self.current = 0.0;
+    }
+
+    pub fn set_inactive(&mut self) {
+        self.reset();
+    }
 }

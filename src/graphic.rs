@@ -1,8 +1,7 @@
 extern crate sdl2;
-use std::path::Path;
+use std::{collections::HashMap, path::Path};
 
 use sdl2::{
-    image::LoadTexture,
     pixels::Color,
     rect::{Point, Rect},
     render::{Texture, TextureCreator, TextureQuery, WindowCanvas},
@@ -13,6 +12,7 @@ use sdl2::{
 use self::font::FontParams;
 
 pub mod button;
+pub mod community_renderer;
 pub mod font;
 pub mod player_render;
 pub mod renderer;
@@ -25,32 +25,26 @@ pub const TITLE: &'static str = "Rust game";
 pub const WIDTH: u32 = 1920;
 pub const HEIGHT: u32 = 1080;
 
-pub const DEFAULT_FONT: FontParams = FontParams {
-    size: 20,
-    style: sdl2::ttf::FontStyle::NORMAL,
-    color: sdl2::pixels::Color::WHITE,
-};
+pub const TEXTURE_PATHS: [(&'static str, &'static str); 2] = [
+    ("BACKGROUND","assets/vecteezy_poker-table-green-cloth-on-dark-background-vector-illustration_6325236.jpg"),
+    ("CARD","assets/cards.png"),
+];
 
 pub struct SDL2Graphics<'a> {
-    canvas: WindowCanvas,
+    pub canvas: WindowCanvas,
     ttf: Sdl2TtfContext,
     font_path: &'a Path,
-    bg_path: &'a Path,
+    pub tex_cache: HashMap<&'a str, Texture<'a>>,
 }
 
 impl<'a> SDL2Graphics<'a> {
-    pub fn from(
-        mut canvas: WindowCanvas,
-        ttf: Sdl2TtfContext,
-        font_path: &'a Path,
-        bg_path: &'a Path,
-    ) -> Self {
+    pub fn new(mut canvas: WindowCanvas, ttf: Sdl2TtfContext, font_path: &'a Path) -> Self {
         canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
         SDL2Graphics {
             canvas,
             ttf,
             font_path,
-            bg_path,
+            tex_cache: HashMap::new(),
         }
     }
 
@@ -59,9 +53,9 @@ impl<'a> SDL2Graphics<'a> {
     }
 
     pub fn clear(&mut self) -> Result<(), String> {
-        let texture_creator = self.canvas.texture_creator();
-        let bg = texture_creator.load_texture(self.bg_path)?;
-        self.canvas.copy(&bg, None, None)?;
+        if let Some(bg) = self.tex_cache.get("BACKGROUND") {
+            self.canvas.copy(bg, None, None)?;
+        }
 
         Ok(())
     }

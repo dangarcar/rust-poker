@@ -1,12 +1,12 @@
 use sdl2::{pixels::Color, rect::Rect};
 
-use crate::graphic::{
+use crate::{graphic::{
     button::{Button, ButtonState},
     self_render::{CALL_COLOR, FOLD_COLOR, RAISE_COLOR},
     slider::Slider,
     ui_component::EventReceiver,
     HEIGHT, WIDTH,
-};
+}, core::state::GameState};
 
 use super::player_state::{PlayerAction, PlayerState};
 
@@ -20,19 +20,20 @@ pub struct SelfController {
     pub image_bounds: Rect,
 
     pub state: PlayerState,
+    pub diff: i32,
 }
 
 impl EventReceiver<Option<PlayerAction>> for SelfController {
     fn handle_event(&mut self, event: &sdl2::event::Event) -> Option<PlayerAction> {
         self.slider.handle_event(event);
 
-        let raise =
-            self.raise_btn.handle_event(event) == ButtonState::Pressed && self.state.can_raise;
+        let raise = self.raise_btn.handle_event(event) == ButtonState::Pressed && self.state.can_raise;
         let call = self.call_btn.handle_event(event) == ButtonState::Pressed;
         let fold = self.fold_btn.handle_event(event) == ButtonState::Pressed;
 
         if !self.state.can_raise {
             self.raise_btn.set_inactive();
+            self.slider.set_inactive();
         }
 
         if self.state.folded {
@@ -43,6 +44,7 @@ impl EventReceiver<Option<PlayerAction>> for SelfController {
         }
 
         if raise {
+            self.slider.reset();
             Some(PlayerAction::Raise(self.to_raise()))
         } else if call {
             Some(PlayerAction::Call)
@@ -91,6 +93,7 @@ impl Default for SelfController {
             slider,
             image_bounds,
             state: Default::default(),
+            diff: 0,
         }
     }
 }
@@ -102,5 +105,12 @@ impl SelfController {
 
     pub fn to_raise(&self) -> i32 {
         (self.slider.value() * self.state.cash as f32) as i32
+    }
+
+    pub fn early_update(&mut self, state: &GameState) {
+        if self.state.can_raise {
+            self.raise_btn.set_active();
+        }
+        self.diff = state.bet_amount - self.state.bet;
     }
 }

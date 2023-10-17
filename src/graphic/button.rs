@@ -1,9 +1,9 @@
 use sdl2::{event::Event, mouse::MouseButton, pixels::Color, rect::Rect};
 
 use super::{
-    font::FontParams,
+    font::{FontParams, DEFAULT_FONT},
     ui_component::{Drawable, EventReceiver},
-    SDL2Graphics, DEFAULT_FONT,
+    SDL2Graphics,
 };
 
 #[derive(Debug, Clone, Copy)]
@@ -129,5 +129,11 @@ impl Button {
 
     pub fn set_inactive(&mut self) {
         self.state = ButtonState::Inactive;
+    }
+
+    pub fn set_active(&mut self) {
+        if self.state == ButtonState::Inactive {
+            self.state = ButtonState::Normal;
+        }
     }
 }

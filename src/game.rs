@@ -5,19 +5,29 @@ use itertools::Itertools;
 use rand::Rng;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
+use sdl2::pixels::Color;
+use sdl2::rect::Point;
+use sdl2::rect::Rect;
 
+use crate::core::action::game_action::GameAction;
 use crate::core::action::mpsc_queue::MpscQueue;
 use crate::core::action::GameMessage;
 use crate::core::engine::Engine;
+use crate::core::player;
 use crate::core::player::montecarlo::MontecarloPlayer;
 use crate::core::player::myself::MyselfPlayer;
 use crate::core::player::Player;
+use crate::core::rank::Rank;
 use crate::core::state::GameState;
+use crate::core::state::Round;
 use crate::game::player_state::PlayerAction;
+use crate::graphic::font::DEFAULT_FONT;
 use crate::graphic::ui;
 use crate::graphic::ui_component::Drawable;
 use crate::graphic::ui_component::EventReceiver;
 use crate::graphic::SDL2Graphics;
+use crate::graphic::HEIGHT;
+use crate::graphic::WIDTH;
 
 use self::player_state::PlayerState;
 
@@ -29,6 +39,7 @@ pub enum GamePhase {
     Playing,
     Start,
     Pause,
+    Ended(Rank, usize, i32),
 }
 
 pub struct Game {
@@ -56,30 +67,10 @@ impl Game {
         }
     }
 
-    pub fn handle_event(&mut self, event: &Event) -> Result<(), String> {
-        match event {
-            Event::KeyDown {
-                keycode: Some(key), ..
-            } => match key {
-                Keycode::P => {
-                    if self.phase == GamePhase::Pause {
-                        self.phase = GamePhase::Playing;
-                    } else if self.phase == GamePhase::Playing {
-                        self.phase = GamePhase::Pause;
-                    }
-                }
-                _ => {}
-            },
-            _ => {}
+    pub fn early_update(&mut self) {
+        if let Some(state) = &self.game_state {
+            self.ui.player_controller.early_update(state);
         }
-
-        if let Some(act) = self.ui.handle_event(event)? {
-            if let Some(tx) = &self.player_tx {
-                tx.send(act).map_err(|e| e.to_string())?;
-            }
-        }
-
-        Ok(())
     }
 
     pub fn update(&mut self) {
@@ -89,28 +80,10 @@ impl Game {
                 Err(_) => {}
             }
         }
-    }
 
-    pub fn render(&self, gfx: &mut SDL2Graphics) -> Result<(), String> {
-        self.ui.draw(gfx)?;
-        Ok(())
-    }
-
-    pub fn default_players(&mut self) {
-        let mut rng = rand::thread_rng();
-        self.players = Some(Vec::new());
-        for _ in 0..8 {
-            self.players.as_mut().unwrap().push(PlayerState {
-                name: String::from_utf8(vec![rng.gen_range('1'..'z') as u8; 7]).unwrap(),
-                bet: 0,
-                cash: 1000,
-                hand: None,
-                can_raise: false,
-                folded: false,
-            });
+        if let Some(player_states) = &self.players {
+            self.ui.update_states(player_states, self.myself);
         }
-
-        self.myself = rng.gen_range(0..8);
     }
 
     pub fn start(&mut self) {
@@ -148,9 +121,174 @@ impl Game {
     }
 
     fn update_player_state(&mut self, msg: GameMessage) {
-        println!("{:?}", msg.action);
+        let state = msg.state;
+
+        if let Some(players) = &mut self.players {
+            match msg.action {
+                GameAction::DealStartHand { hand, i } => {
+                    if i == self.myself {
+                        players[i].hand = Some(hand);
+                    }
+                }
+                GameAction::RoundChanged { round } => {
+                    for p in players.iter_mut() {
+                        p.can_raise = round != Round::Preflop;
+                    }
+                    if round >= Round::Preflop && round < Round::Complete {
+                        players[state.active_players[0]].turn = true;
+                    }
+                }
+                GameAction::DealCommunity { card } => {
+                    self.ui.community.add_card(card);
+                }
+                GameAction::PlayedBet { action, i, all_in } => {
+                    match action {
+                        player::PlayerAction::Raise(a) | player::PlayerAction::Call(a) => {
+                            players[i].cash -= a;
+                            players[i].bet += a;
+                            players[i].all_in = all_in;
+                        }
+                        player::PlayerAction::Fold => panic!("A fold is not a bet"),
+                    }
+
+                    update_turn(&state, i, players);
+                }
+                GameAction::PlayedFolded { action, i } => {
+                    match action {
+                        player::PlayerAction::Fold => players[i].folded = true,
+                        _ => (),
+                    }
+                    update_turn(&state, i, players);
+                }
+                GameAction::ErroredPlay { error, i } => {
+                    println!("{error}");
+                    update_turn(&state, i, players);
+                }
+                GameAction::ShowdownHand { hand, rank, i } => {
+                    players[i].hand = Some(hand);
+                    players[i].rank = Some(rank);
+                    update_turn(&state, i, players);
+                }
+                GameAction::WinGame { rank, i, pot } => {
+                    players[i].turn = true;
+                    self.phase = GamePhase::Ended(rank, i, pot);
+                }
+            };
+        }
 
         //Set state to the engine's state at the end
-        self.game_state = Some(msg.state);
+        self.game_state = Some(state);
+    }
+
+    pub fn default_players(&mut self) {
+        let mut rng = rand::thread_rng();
+        let max_p = 8;
+        self.players = Some(Vec::new());
+        for i in 0..max_p {
+            self.players.as_mut().unwrap().push(PlayerState {
+                name: format!("Player{}",i+1),
+                bet: 0,
+                cash: 1000,
+                hand: None,
+                rank: None,
+                can_raise: false,
+                folded: false,
+                all_in: false,
+                turn: false,
+            });
+        }
+
+        self.myself = rng.gen_range(0..max_p);
+        self.players.as_mut().unwrap()[self.myself].name = "Me".to_string();
+    }
+}
+
+impl EventReceiver<Result<(), String>> for Game {
+    fn handle_event(&mut self, event: &Event) -> Result<(), String> {
+        if let GamePhase::Ended(..) = self.phase {
+            return Ok(());
+        }
+
+        match event {
+            Event::KeyDown {
+                keycode: Some(key), ..
+            } => match key {
+                Keycode::P => {
+                    if self.phase == GamePhase::Pause {
+                        self.phase = GamePhase::Playing;
+                    } else if self.phase == GamePhase::Playing {
+                        self.phase = GamePhase::Pause;
+                    }
+                }
+                _ => {}
+            },
+            _ => {}
+        }
+
+        if let Some(act) = self.ui.handle_event(event)? {
+            if let Some(tx) = &self.player_tx {
+                tx.send(act).map_err(|e| e.to_string())?;
+            }
+        }
+
+        Ok(())
+    }
+}
+
+impl Drawable for Game {
+    fn draw(&self, gfx: &mut SDL2Graphics) -> Result<(), String> {
+        self.ui.draw(gfx)?;
+
+        if let GamePhase::Ended(rank, i, pot) = self.phase {
+            gfx.draw_rect(Rect::new(0, 0, WIDTH, HEIGHT), Color::RGBA(0, 0, 0, 200))?;
+
+            if let Some(players) = &self.players {
+                if i != self.myself {
+                    gfx.draw_string(
+                        "GAME OVER",
+                        DEFAULT_FONT.derive_size(128).derive_color(Color::RED),
+                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 - 50),
+                        true,
+                    );
+                    gfx.draw_string(
+                        &format!("Player {} won {}€", players[i].name, pot),
+                        DEFAULT_FONT.derive_size(48),
+                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 50),
+                        true,
+                    );
+                } else {
+                    gfx.draw_string(
+                        "GAME OVER",
+                        DEFAULT_FONT.derive_size(128).derive_color(Color::GREEN),
+                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 - 50),
+                        true,
+                    );
+                    gfx.draw_string(
+                        &format!("You have won {}€", pot),
+                        DEFAULT_FONT.derive_size(48),
+                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 50),
+                        true,
+                    );
+                }
+
+                gfx.draw_string(
+                    &format!("Rank: {:?}", rank),
+                    DEFAULT_FONT.derive_size(48),
+                    Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 120),
+                    true,
+                );
+            }
+        }
+
+        Ok(())
+    }
+}
+
+fn update_turn(state: &GameState, i: usize, players: &mut Vec<PlayerState>) {
+    players[i].turn = false;
+    if let Some(j) = state.active_players.iter().position(|&x| x == i) {
+        if j + 1 < state.active_players.len() {
+            players[state.active_players[j + 1]].turn = true;
+        }
     }
 }

@@ -5,7 +5,11 @@ use sdl2::{
 
 use crate::game::player_state::PlayerState;
 
-use super::{ui_component::Drawable, DEFAULT_FONT};
+use super::{
+    font::DEFAULT_FONT,
+    self_render::{rect_card_spritesheet, CARD_SPRITE_RATIO},
+    ui_component::Drawable,
+};
 
 pub struct PlayerRenderer {
     bounds: Rect,
@@ -15,7 +19,7 @@ pub struct PlayerRenderer {
 
 impl PlayerRenderer {
     pub fn new(p: Point, state: PlayerState) -> Self {
-        let bounds = Rect::from_center(p, 160, 100);
+        let bounds = Rect::from_center(p, 260, 140);
         let image_bounds = Rect::new(bounds.x + 10, bounds.y + 10, 50, 50);
 
         PlayerRenderer {
@@ -35,20 +39,57 @@ impl Drawable for PlayerRenderer {
         gfx.draw_rect(self.bounds, Color::GRAY)?;
         gfx.draw_rect(self.image_bounds, Color::MAGENTA)?;
 
-        let t = format!("{}€", self.state.cash);
         gfx.draw_string(
-            &t,
+            &self.state.name,
             DEFAULT_FONT,
-            Point::new(self.image_bounds.right() + 10, self.image_bounds.y),
+            Point::new(self.image_bounds.right() + 10, self.image_bounds.y + 2),
             false,
         );
 
         gfx.draw_string(
-            &self.state.name,
+            &format!("{}€", self.state.cash),
             DEFAULT_FONT,
             Point::new(self.image_bounds.x, self.image_bounds.bottom() + 10),
             false,
         );
+
+        gfx.draw_string(
+            &format!("{}€", self.state.bet),
+            DEFAULT_FONT.derive_color(Color::GREEN),
+            Point::new(self.image_bounds.x, self.image_bounds.bottom() + 40),
+            false,
+        );
+
+        if let Some(tex) = gfx.tex_cache.get("CARD") {
+            let w = 52;
+            let h = (w as f32 * CARD_SPRITE_RATIO) as i32;
+
+            let p = self.bounds.bottom_right().offset(-w-10, -h-10);
+            gfx.canvas.copy(
+                tex,
+                rect_card_spritesheet(match self.state.hand {
+                    Some(hand) => Some(hand.0),
+                    None => None,
+                }),
+                Rect::new(p.x, p.y, w as u32, h as u32),
+            )?;
+
+            let p = p.offset(-w-10, 0);
+            gfx.canvas.copy(
+                tex,
+                rect_card_spritesheet(match self.state.hand {
+                    Some(hand) => Some(hand.1),
+                    None => None,
+                }),
+                Rect::new(p.x, p.y, w as u32, h as u32),
+            )?;
+        }
+
+        if self.state.folded {
+            gfx.draw_rect(self.bounds, Color::RGBA(0, 0, 0, 180))?;
+        } else if self.state.turn {
+            gfx.draw_rect(self.bounds, Color::RGBA(255, 255, 0, 100))?;
+        }
 
         Ok(())
     }

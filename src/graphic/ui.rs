@@ -11,6 +11,7 @@ use crate::{
 };
 
 use super::{
+    community_renderer::CommunityRenderer,
     player_render::PlayerRenderer,
     ui_component::{Drawable, EventReceiver},
     SDL2Graphics,
@@ -19,6 +20,7 @@ use super::{
 pub struct UI {
     pub player_controller: SelfController,
     pub players: HashMap<usize, PlayerRenderer>,
+    pub community: CommunityRenderer,
 }
 
 impl EventReceiver<Result<Option<PlayerAction>, String>> for UI {
@@ -35,6 +37,8 @@ impl Drawable for UI {
             p.draw(gfx)?;
         }
 
+        self.community.draw(gfx)?;
+
         Ok(())
     }
 }
@@ -44,6 +48,7 @@ impl UI {
         UI {
             player_controller: SelfController::default(),
             players: HashMap::new(),
+            community: CommunityRenderer::default(),
         }
     }
 
@@ -53,13 +58,13 @@ impl UI {
         myself: usize,
     ) -> Result<(), EngineError> {
         let mut places = vec![
-            Point::new(960, 250),
-            Point::new(400, 540),
             Point::new(1520, 540),
-            Point::new(500, 300),
+            Point::new(400, 540),
+            Point::new(1420, 770),
+            Point::new(500, 770),
             Point::new(1420, 300),
-            Point::new(500, 780),
-            Point::new(1420, 780),
+            Point::new(500, 300),
+            Point::new(960, 250),
         ];
 
         for (i, p) in player_states.iter().enumerate() {
@@ -73,5 +78,15 @@ impl UI {
         }
 
         Ok(())
+    }
+
+    pub fn update_states(&mut self, player_states: &Vec<PlayerState>, myself: usize) {
+        for (i, p) in player_states.iter().enumerate() {
+            if i == myself {
+                self.player_controller.set_state(p.clone());
+            } else {
+                self.players.get_mut(&i).unwrap().set_state(p.clone());
+            }
+        }
     }
 }

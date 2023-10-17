@@ -2,7 +2,7 @@ use crate::core::card::Card;
 
 use super::error::EngineError;
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Round {
     Starting,
     Preflop, //Bet
