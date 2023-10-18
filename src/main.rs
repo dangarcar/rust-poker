@@ -1,14 +1,19 @@
 extern crate sdl2;
 
 use std::path::Path;
+use std::time::Instant;
 
 use poker::game::Game;
+use poker::graphic::font::DEFAULT_FONT;
 use poker::graphic::ui_component::{Drawable, EventReceiver};
-use poker::graphic::{self, TEXTURE_PATHS};
+use poker::graphic::{self, TEXTURE_PATHS, SDL2Graphics};
 
 use sdl2::event::Event;
 use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
+use sdl2::rect::Point;
+
+const DEBUG: bool = true;
 
 fn main() {
     env_logger::init();
@@ -45,16 +50,17 @@ fn main() {
         }
     }
 
-    let mut game = Game::new();
-    //TODO: New players that aren't default
-    game.default_players();
-
+    let mut game = Game::new(true);
     game.start();
+
+    let mut time = (0u128, 0i32, 0u128);
 
     let mut event_pump = sdl_context
         .event_pump()
         .expect("Couldn't create the event loop");
     'running: loop {
+        let t = Instant::now();
+
         game.early_update();
 
         //Event update
@@ -76,6 +82,38 @@ fn main() {
         // Graphic update
         gfx.clear().ok();
         game.draw(&mut gfx).ok();
+        if DEBUG {
+            draw_time_elapsed(&mut gfx, time);
+        }
         gfx.show();
+
+        time.2 = t.elapsed().as_nanos();
+        time.0 = time.0 * time.1 as u128 + time.2;
+        time.1 += 1;
+        time.0 = time.0 / time.1 as u128;
     }
+}
+
+fn draw_time_elapsed(gfx: &mut SDL2Graphics, time: (u128, i32, u128)) {
+    let total_avg = 1.max(time.0 /1000);
+    let total = 1.max(time.2 /1000);
+
+    gfx.draw_string(
+        "DEBUG",
+        DEFAULT_FONT,
+        Point::new(10, 10),
+        false,
+    );
+    gfx.draw_string(
+        &format!("Total time: {}us    AVG: {}us", total, total_avg),
+        DEFAULT_FONT,
+        Point::new(10, 40),
+        false,
+    );
+    gfx.draw_string(
+        &format!("FPS: {}             AVG: {}", 1e6 as u128 / total, 1e6 as u128 / total_avg),
+        DEFAULT_FONT,
+        Point::new(10, 70),
+        false,
+    );
 }

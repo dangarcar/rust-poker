@@ -55,16 +55,15 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
-        Game {
-            ui: ui::UI::default(),
-            phase: GamePhase::Start,
-            players: None,
-            myself: 0,
-            game_rx: None,
-            player_tx: None,
-            game_state: None,
+    //TODO: New players that aren't default
+    pub fn new(default_players: bool) -> Self {
+        let mut game = Game::default();
+
+        if default_players {
+            game.default_players();
         }
+
+        game
     }
 
     pub fn early_update(&mut self) {
