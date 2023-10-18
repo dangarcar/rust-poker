@@ -64,23 +64,17 @@ impl Drawable for PlayerRenderer {
             let w = 52;
             let h = (w as f32 * CARD_SPRITE_RATIO) as i32;
 
-            let p = self.bounds.bottom_right().offset(-w-10, -h-10);
+            let p = self.bounds.bottom_right().offset(-w - 10, -h - 10);
             gfx.canvas.copy(
                 tex,
-                rect_card_spritesheet(match self.state.hand {
-                    Some(hand) => Some(hand.0),
-                    None => None,
-                }),
+                rect_card_spritesheet(self.state.hand.map(|hand| hand.0)),
                 Rect::new(p.x, p.y, w as u32, h as u32),
             )?;
 
-            let p = p.offset(-w-10, 0);
+            let p = p.offset(-w - 10, 0);
             gfx.canvas.copy(
                 tex,
-                rect_card_spritesheet(match self.state.hand {
-                    Some(hand) => Some(hand.1),
-                    None => None,
-                }),
+                rect_card_spritesheet(self.state.hand.map(|hand| hand.1)),
                 Rect::new(p.x, p.y, w as u32, h as u32),
             )?;
         }

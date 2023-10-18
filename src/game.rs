@@ -34,14 +34,16 @@ use self::player_state::PlayerState;
 pub mod player_state;
 pub mod self_controller;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GamePhase {
-    Playing,
+    #[default]
     Start,
+    Playing,
     Pause,
     Ended(Rank, usize, i32),
 }
 
+#[derive(Default)]
 pub struct Game {
     ui: ui::UI,
     phase: GamePhase,
@@ -54,10 +56,8 @@ pub struct Game {
 
 impl Game {
     pub fn new() -> Self {
-        let ui = ui::UI::new();
-
         Game {
-            ui,
+            ui: ui::UI::default(),
             phase: GamePhase::Start,
             players: None,
             myself: 0,
@@ -75,9 +75,8 @@ impl Game {
 
     pub fn update(&mut self) {
         if let Some(rx) = &self.game_rx {
-            match rx.try_recv() {
-                Ok(msg) => self.update_player_state(msg),
-                Err(_) => {}
+            if let Ok(msg) = rx.try_recv() {
+                self.update_player_state(msg);
             }
         }
 
@@ -101,7 +100,7 @@ impl Game {
                 let queue = Box::new(MpscQueue::new(game_tx));
                 let mut players = player_states
                     .iter()
-                    .map(|_| Box::new(MontecarloPlayer::default()) as Box<dyn Player>)
+                    .map(|_| Box::<MontecarloPlayer>::default() as Box<dyn Player>)
                     .collect_vec();
                 players[this] = Box::new(MyselfPlayer::new(player_rx));
 
@@ -156,7 +155,7 @@ impl Game {
                 GameAction::PlayedFolded { action, i } => {
                     match action {
                         player::PlayerAction::Fold => players[i].folded = true,
-                        _ => (),
+                        _ => panic!("A bet is not a fold"),
                     }
                     update_turn(&state, i, players);
                 }
@@ -186,7 +185,7 @@ impl Game {
         self.players = Some(Vec::new());
         for i in 0..max_p {
             self.players.as_mut().unwrap().push(PlayerState {
-                name: format!("Player{}",i+1),
+                name: format!("Player{}", i + 1),
                 bet: 0,
                 cash: 1000,
                 hand: None,
@@ -209,6 +208,7 @@ impl EventReceiver<Result<(), String>> for Game {
             return Ok(());
         }
 
+        #[allow(clippy::single_match)]
         match event {
             Event::KeyDown {
                 keycode: Some(key), ..
@@ -220,7 +220,8 @@ impl EventReceiver<Result<(), String>> for Game {
                         self.phase = GamePhase::Pause;
                     }
                 }
-                _ => {}
+                Keycode::A => println!("A pressed"),
+                _ => (),
             },
             _ => {}
         }
@@ -284,7 +285,7 @@ impl Drawable for Game {
     }
 }
 
-fn update_turn(state: &GameState, i: usize, players: &mut Vec<PlayerState>) {
+fn update_turn(state: &GameState, i: usize, players: &mut [PlayerState]) {
     players[i].turn = false;
     if let Some(j) = state.active_players.iter().position(|&x| x == i) {
         if j + 1 < state.active_players.len() {

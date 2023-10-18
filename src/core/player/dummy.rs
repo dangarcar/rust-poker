@@ -26,7 +26,7 @@ impl Player for DummyPlayer {
         let raise_prob = RAISE_PROB * rank.to_i32() as f64;
 
         if rng.gen_bool(fold_prob) {
-            return Ok(PlayerAction::Fold);
+            Ok(PlayerAction::Fold)
         } else if rng.gen_bool(raise_prob) && cash > diff {
             let x: f64 = rng.gen();
             let delta = (cash - diff) as f64 * x * x * x;
@@ -52,7 +52,7 @@ impl Player for DummyPlayer {
         let fold = (self.hand.unwrap().0.value as i32 + self.hand.unwrap().1.value as i32) < 10;
 
         if fold || cash < state.bet_amount {
-            return Ok(PlayerAction::Fold);
+            Ok(PlayerAction::Fold)
         } else {
             Ok(PlayerAction::Call(state.bet_amount))
         }

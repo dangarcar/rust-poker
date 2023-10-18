@@ -20,19 +20,19 @@ impl FontParams {
     }
 
     pub fn derive_color(&self, c: pixels::Color) -> FontParams {
-        let mut f = self.clone();
+        let mut f = *self;
         f.color = c;
         f
     }
 
     pub fn derive_size(&self, s: u16) -> FontParams {
-        let mut f = self.clone();
+        let mut f = *self;
         f.size = s;
         f
     }
 
     pub fn derive_style(&self, s: ttf::FontStyle) -> FontParams {
-        let mut f = self.clone();
+        let mut f = *self;
         f.style = s;
         f
     }

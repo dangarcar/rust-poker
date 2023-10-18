@@ -6,7 +6,7 @@ use crate::core::card::*;
 
 use super::error::EngineError;
 
-#[derive(PartialOrd, Ord, Eq, Debug, Clone, Copy, Hash)]
+#[derive(PartialOrd, Ord, Eq, Debug, Clone, Copy)]
 pub enum Rank {
     ///The highest card in the hand
     HighCard(Value),
@@ -206,7 +206,7 @@ fn rank_straight(cards: &mut [Card]) -> Option<Rank> {
             }
         }
 
-        if straight == true {
+        if straight {
             return Some(Rank::Straight(cards[i].value));
         }
     }

@@ -48,7 +48,7 @@ fn main() {
     let mut game = Game::new();
     //TODO: New players that aren't default
     game.default_players();
-    
+
     game.start();
 
     let mut event_pump = sdl_context

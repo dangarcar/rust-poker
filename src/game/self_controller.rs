@@ -1,12 +1,15 @@
 use sdl2::{pixels::Color, rect::Rect};
 
-use crate::{graphic::{
-    button::{Button, ButtonState},
-    self_render::{CALL_COLOR, FOLD_COLOR, RAISE_COLOR},
-    slider::Slider,
-    ui_component::EventReceiver,
-    HEIGHT, WIDTH,
-}, core::state::GameState};
+use crate::{
+    core::state::GameState,
+    graphic::{
+        button::{Button, ButtonState},
+        self_render::{CALL_COLOR, FOLD_COLOR, RAISE_COLOR},
+        slider::Slider,
+        ui_component::EventReceiver,
+        HEIGHT, WIDTH,
+    },
+};
 
 use super::player_state::{PlayerAction, PlayerState};
 
@@ -27,7 +30,8 @@ impl EventReceiver<Option<PlayerAction>> for SelfController {
     fn handle_event(&mut self, event: &sdl2::event::Event) -> Option<PlayerAction> {
         self.slider.handle_event(event);
 
-        let raise = self.raise_btn.handle_event(event) == ButtonState::Pressed && self.state.can_raise;
+        let raise =
+            self.raise_btn.handle_event(event) == ButtonState::Pressed && self.state.can_raise;
         let call = self.call_btn.handle_event(event) == ButtonState::Pressed;
         let fold = self.fold_btn.handle_event(event) == ButtonState::Pressed;
 

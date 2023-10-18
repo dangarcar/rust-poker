@@ -344,7 +344,7 @@ impl Engine {
             }
         }
 
-        match engine.state.round.clone() {
+        match engine.state.round {
             Round::Flop | Round::Turn | Round::River => {
                 engine.betting_round()?;
                 engine.state.round = engine.state.round.next();

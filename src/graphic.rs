@@ -21,11 +21,11 @@ pub mod slider;
 pub mod ui;
 pub mod ui_component;
 
-pub const TITLE: &'static str = "Rust game";
+pub const TITLE: &str = "Rust game";
 pub const WIDTH: u32 = 1920;
 pub const HEIGHT: u32 = 1080;
 
-pub const TEXTURE_PATHS: [(&'static str, &'static str); 2] = [
+pub const TEXTURE_PATHS: [(&str, &str); 2] = [
     ("BACKGROUND","assets/vecteezy_poker-table-green-cloth-on-dark-background-vector-illustration_6325236.jpg"),
     ("CARD","assets/cards.png"),
 ];

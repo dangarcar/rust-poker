@@ -85,8 +85,10 @@ impl Drawable for SelfController {
         let t = format!("Call amount: {}€", self.diff + self.to_raise());
         gfx.draw_string(
             &t,
-            DEFAULT_FONT.derive_size(72).derive_color(Color::RGB(52, 128, 31)),
-            Point::new(WIDTH as i32/2, 100),
+            DEFAULT_FONT
+                .derive_size(72)
+                .derive_color(Color::RGB(52, 128, 31)),
+            Point::new(WIDTH as i32 / 2, 100),
             true,
         );
 
@@ -130,8 +132,8 @@ pub fn rect_card_spritesheet(card: Option<card::Card>) -> Rect {
             Rect::new(
                 (x_offset % 13) * SPRITE_WIDTH as i32,
                 y_offset * SPRITE_HEIGHT as i32,
-                SPRITE_WIDTH as u32,
-                SPRITE_HEIGHT as u32,
+                SPRITE_WIDTH,
+                SPRITE_HEIGHT,
             )
         }
         None => Rect::new(

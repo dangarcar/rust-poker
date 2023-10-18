@@ -9,21 +9,6 @@ pub struct Deck {
 }
 
 impl Deck {
-    ///Returns a new shuffled deck
-    pub fn default() -> Self {
-        let mut v = Vec::new();
-
-        for suit in card::SUITS {
-            for value in card::VALUES {
-                v.push(card::Card { suit, value });
-            }
-        }
-
-        v.shuffle(&mut thread_rng());
-
-        Deck { cards: v }
-    }
-
     pub fn new_without_cards(cards: &[card::Card]) -> Self {
         let mut v = Vec::new();
 
@@ -48,6 +33,26 @@ impl Deck {
 
     pub fn len(&self) -> usize {
         self.cards.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.cards.is_empty()
+    }
+}
+
+impl Default for Deck {
+    fn default() -> Self {
+        let mut v = Vec::new();
+
+        for suit in card::SUITS {
+            for value in card::VALUES {
+                v.push(card::Card { suit, value });
+            }
+        }
+
+        v.shuffle(&mut thread_rng());
+
+        Deck { cards: v }
     }
 }
 

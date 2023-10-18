@@ -17,6 +17,7 @@ use super::{
     SDL2Graphics,
 };
 
+#[derive(Default)]
 pub struct UI {
     pub player_controller: SelfController,
     pub players: HashMap<usize, PlayerRenderer>,
@@ -44,17 +45,9 @@ impl Drawable for UI {
 }
 
 impl UI {
-    pub fn new() -> Self {
-        UI {
-            player_controller: SelfController::default(),
-            players: HashMap::new(),
-            community: CommunityRenderer::default(),
-        }
-    }
-
     pub fn start(
         &mut self,
-        player_states: &Vec<PlayerState>,
+        player_states: &[PlayerState],
         myself: usize,
     ) -> Result<(), EngineError> {
         let mut places = vec![
@@ -80,7 +73,7 @@ impl UI {
         Ok(())
     }
 
-    pub fn update_states(&mut self, player_states: &Vec<PlayerState>, myself: usize) {
+    pub fn update_states(&mut self, player_states: &[PlayerState], myself: usize) {
         for (i, p) in player_states.iter().enumerate() {
             if i == myself {
                 self.player_controller.set_state(p.clone());

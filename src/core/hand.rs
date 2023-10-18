@@ -4,22 +4,19 @@ use crate::core::rank;
 
 use super::error::EngineError;
 
+#[derive(Default)]
 pub struct Hand {
     cards: Vec<Card>,
 }
 
 impl Hand {
-    pub fn new() -> Self {
-        Hand { cards: Vec::new() }
-    }
-
-    pub fn new_from_cards(cards: &Vec<Card>) -> Self {
+    pub fn new_from_cards(cards: &[Card]) -> Self {
         Hand {
-            cards: cards.clone(),
+            cards: cards.to_owned(),
         }
     }
 
-    pub fn new_from_hand(h: PlayerHand, com: &Vec<Card>) -> Self {
+    pub fn new_from_hand(h: PlayerHand, com: &[Card]) -> Self {
         let mut hand = Hand::new_from_cards(com);
         hand.push(h.0);
         hand.push(h.1);

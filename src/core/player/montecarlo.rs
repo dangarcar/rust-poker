@@ -33,7 +33,7 @@ impl Player for MontecarloPlayer {
         let fold = (win * n_players as f64) < BLIND_FOLD_PROB;
 
         if fold || cash < state.bet_amount {
-            return Ok(PlayerAction::Fold);
+            Ok(PlayerAction::Fold)
         } else {
             Ok(PlayerAction::Call(state.bet_amount))
         }
@@ -52,7 +52,7 @@ impl Player for MontecarloPlayer {
         let win_pp = win * n_players as f64;
 
         if win_pp < 1.0 {
-            return Ok(PlayerAction::Fold);
+            Ok(PlayerAction::Fold)
         } else if rng.gen_bool((win_pp - 1.0).div(state.num_active_players as f64).min(1.0))
             && cash > diff
         {
