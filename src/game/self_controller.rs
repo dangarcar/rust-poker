@@ -48,8 +48,9 @@ impl EventReceiver<Option<PlayerAction>> for SelfController {
         }
 
         if raise {
+            let s = Some(PlayerAction::Raise(self.to_raise()));
             self.slider.reset();
-            Some(PlayerAction::Raise(self.to_raise()))
+            s
         } else if call {
             Some(PlayerAction::Call)
         } else if fold {

@@ -4,12 +4,11 @@ use std::path::Path;
 use std::time::Instant;
 
 use poker::game::Game;
+use poker::graphic;
 use poker::graphic::font::DEFAULT_FONT;
 use poker::graphic::ui_component::{Drawable, EventReceiver};
-use poker::graphic::{self, TEXTURE_PATHS, SDL2Graphics};
 
 use sdl2::event::Event;
-use sdl2::image::LoadTexture;
 use sdl2::keyboard::Keycode;
 use sdl2::rect::Point;
 
@@ -43,12 +42,8 @@ fn main() {
 
     //Load textures and construct gfx
     let creator = canvas.texture_creator();
-    let mut gfx = graphic::SDL2Graphics::new(canvas, ttf, font_path);
-    for (name, path) in TEXTURE_PATHS {
-        if let Ok(tex) = creator.load_texture(path) {
-            gfx.tex_cache.insert(name, tex);
-        }
-    }
+    let mut gfx = graphic::SDL2Graphics::new(canvas, ttf, font_path, &creator);
+    gfx.start(&creator).expect("Cannot load fonts in a cache");
 
     let mut game = Game::new(true);
     game.start();
@@ -82,38 +77,36 @@ fn main() {
         // Graphic update
         gfx.clear().ok();
         game.draw(&mut gfx).ok();
-        if DEBUG {
-            draw_time_elapsed(&mut gfx, time);
-        }
+        if DEBUG { draw_time_elapsed(&mut gfx, time); }
         gfx.show();
 
         time.2 = t.elapsed().as_nanos();
         time.0 = time.0 * time.1 as u128 + time.2;
         time.1 += 1;
-        time.0 = time.0 / time.1 as u128;
+        time.0 /= time.1 as u128;
     }
 }
 
-fn draw_time_elapsed(gfx: &mut SDL2Graphics, time: (u128, i32, u128)) {
-    let total_avg = 1.max(time.0 /1000);
-    let total = 1.max(time.2 /1000);
+fn draw_time_elapsed(gfx: &mut graphic::SDL2Graphics, time: (u128, i32, u128)) {
+    let total_avg = 1.max(time.0 / 1000);
+    let total = 1.max(time.2 / 1000);
 
-    gfx.draw_string(
-        "DEBUG",
-        DEFAULT_FONT,
-        Point::new(10, 10),
-        false,
-    );
+    gfx.draw_string("DEBUG", DEFAULT_FONT, Point::new(10, 10), false)
+        .unwrap();
     gfx.draw_string(
         &format!("Total time: {}us    AVG: {}us", total, total_avg),
         DEFAULT_FONT,
         Point::new(10, 40),
         false,
+    )
+    .unwrap();
+    let string = format!(
+        "FPS: {}             AVG: {}",
+        1e6 as u128 / total,
+        1e6 as u128 / total_avg
     );
-    gfx.draw_string(
-        &format!("FPS: {}             AVG: {}", 1e6 as u128 / total, 1e6 as u128 / total_avg),
-        DEFAULT_FONT,
-        Point::new(10, 70),
-        false,
-    );
+    gfx.draw_string(&string, DEFAULT_FONT, Point::new(10, 70), false)
+        .unwrap();
+
+    //println!("{string}");
 }

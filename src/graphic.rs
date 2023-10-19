@@ -2,6 +2,7 @@ extern crate sdl2;
 use std::{collections::HashMap, path::Path};
 
 use sdl2::{
+    image::LoadTexture,
     pixels::Color,
     rect::{Point, Rect},
     render::{Texture, TextureCreator, TextureQuery, WindowCanvas},
@@ -9,7 +10,7 @@ use sdl2::{
     video::WindowContext,
 };
 
-use self::font::FontParams;
+use self::font::{FontParams, DEFAULT_FONT};
 
 pub mod button;
 pub mod community_renderer;
@@ -25,27 +26,75 @@ pub const TITLE: &str = "Rust game";
 pub const WIDTH: u32 = 1920;
 pub const HEIGHT: u32 = 1080;
 
-pub const TEXTURE_PATHS: [(&str, &str); 2] = [
+pub const TEXTURE_PATHS: [(&str, &str); 3] = [
     ("BACKGROUND","assets/vecteezy_poker-table-green-cloth-on-dark-background-vector-illustration_6325236.jpg"),
     ("CARD","assets/cards.png"),
+    ("TITLE","assets/title-screen.jpg"),
 ];
+pub const FONTS: [FontParams; 9] = [
+    DEFAULT_FONT,
+    DEFAULT_FONT.derive_size(24),
+    DEFAULT_FONT.derive_size(36),
+    DEFAULT_FONT.derive_size(48),
+    DEFAULT_FONT.derive_size(72),
+    DEFAULT_FONT.derive_color(Color::GREEN),
+    DEFAULT_FONT
+        .derive_size(72)
+        .derive_color(Color::RGB(52, 128, 31)),
+    DEFAULT_FONT.derive_size(128).derive_color(Color::RED),
+    DEFAULT_FONT.derive_size(128).derive_color(Color::GREEN),
+];
+
+pub const CHARACTERS: &str = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"#%&'()*+,-./:;<=>?[\\]^_{|}~€$";
 
 pub struct SDL2Graphics<'a> {
     pub canvas: WindowCanvas,
     ttf: Sdl2TtfContext,
     font_path: &'a Path,
     pub tex_cache: HashMap<&'a str, Texture<'a>>,
+    pub font_cache: HashMap<(FontParams, char), Texture<'a>>,
 }
 
 impl<'a> SDL2Graphics<'a> {
-    pub fn new(mut canvas: WindowCanvas, ttf: Sdl2TtfContext, font_path: &'a Path) -> Self {
+    pub fn new(
+        mut canvas: WindowCanvas,
+        ttf: Sdl2TtfContext,
+        font_path: &'a Path,
+        creator: &'a TextureCreator<WindowContext>,
+    ) -> Self {
         canvas.set_blend_mode(sdl2::render::BlendMode::Blend);
-        SDL2Graphics {
+        let mut gfx = SDL2Graphics {
             canvas,
             ttf,
             font_path,
             tex_cache: HashMap::new(),
+            font_cache: HashMap::new(),
+        };
+
+        for (name, path) in TEXTURE_PATHS {
+            if let Ok(tex) = creator.load_texture(path) {
+                gfx.tex_cache.insert(name, tex);
+            }
         }
+
+        gfx
+    }
+
+    pub fn start(
+        &mut self,
+        creator: &'a TextureCreator<WindowContext>,
+    ) -> Result<(), String> {
+        //Draw load screen
+        if let Some(bg) = self.tex_cache.get("TITLE") {
+            self.canvas.copy(bg, None, None)?;
+        }
+
+        //Load fonts
+        for params in FONTS {
+            self.load_font(creator, params)?;
+        }
+
+        Ok(())
     }
 
     pub fn show(&mut self) {
@@ -67,50 +116,64 @@ impl<'a> SDL2Graphics<'a> {
         Ok(())
     }
 
-    pub fn draw_string(&mut self, txt: &str, params: FontParams, p: Point, centered: bool) {
-        if txt.is_empty() {
-            return;
-        }
-
-        let texture_creator = self.canvas.texture_creator();
-        let texture = self.str_to_texture(txt, params, &texture_creator);
-
-        let (w, h) = texture_size(&texture);
-        let bounds = if centered {
-            Rect::from_center(p, w, h)
-        } else {
-            Rect::new(p.x, p.y, w, h)
-        };
-
-        self.canvas
-            .copy(&texture, None, bounds)
-            .expect("Could not write the string");
-    }
-
-    pub fn string_size(&self, txt: &str, params: FontParams) -> (u32, u32) {
-        let tex_creator = self.canvas.texture_creator();
-        let tex = self.str_to_texture(txt, params, &tex_creator);
-        texture_size(&tex)
-    }
-
-    fn str_to_texture(
-        &self,
+    pub fn draw_string(
+        &mut self,
         txt: &str,
         params: FontParams,
-        texture_creator: &'a TextureCreator<WindowContext>,
-    ) -> Texture<'a> {
+        mut p: Point,
+        centered: bool,
+    ) -> Result<(), String> {
+        let mut width = 0;
+        let mut height = 0;
+
+        let mut chars = Vec::new();
+        for c in txt.chars() {
+            if let Some(char_tex) = self.font_cache.get(&(params, c)) {
+                let (w, h) = texture_size(char_tex);
+                width += w;
+                height = h;
+                chars.push(char_tex);
+            }
+        }
+
+        if centered {
+            p.x -= (width / 2) as i32;
+            p.y -= (height / 2) as i32;
+        }
+
+        for tex in chars {
+            let (w, h) = texture_size(tex);
+            self.canvas.copy(tex, None, Rect::new(p.x, p.y, w, h))?;
+
+            p.x += w as i32;
+        }
+
+        Ok(())
+    }
+
+    fn load_font(
+        &mut self,
+        creator: &'a TextureCreator<WindowContext>,
+        params: FontParams,
+    ) -> Result<(), String> {
         let font = self
             .ttf
             .load_font(self.font_path, params.size)
-            .expect("Error while loading font");
-        let surf = font
-            .render(txt)
-            .blended(params.color)
-            .expect("Error while rendering text to surface");
+            .map_err(|e| e.to_string())?;
 
-        texture_creator
-            .create_texture_from_surface(&surf)
-            .expect("Error while converting from surface to texture")
+        for c in CHARACTERS.chars() {
+            let surf = font
+                .render(&c.to_string())
+                .blended(params.color)
+                .map_err(|e| e.to_string())?;
+
+            let tex = creator
+                .create_texture_from_surface(&surf)
+                .map_err(|e| e.to_string())?;
+            self.font_cache.insert((params, c), tex);
+        }
+
+        Ok(())
     }
 }
 

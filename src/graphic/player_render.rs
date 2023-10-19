@@ -44,21 +44,21 @@ impl Drawable for PlayerRenderer {
             DEFAULT_FONT,
             Point::new(self.image_bounds.right() + 10, self.image_bounds.y + 2),
             false,
-        );
+        )?;
 
         gfx.draw_string(
             &format!("{}€", self.state.cash),
             DEFAULT_FONT,
             Point::new(self.image_bounds.x, self.image_bounds.bottom() + 10),
             false,
-        );
+        )?;
 
         gfx.draw_string(
             &format!("{}€", self.state.bet),
             DEFAULT_FONT.derive_color(Color::GREEN),
             Point::new(self.image_bounds.x, self.image_bounds.bottom() + 40),
             false,
-        );
+        )?;
 
         if let Some(tex) = gfx.tex_cache.get("CARD") {
             let w = 52;

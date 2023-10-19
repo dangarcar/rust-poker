@@ -105,7 +105,7 @@ impl Drawable for Button {
             W as u32,
         ))?;
 
-        gfx.draw_string(&self.text, self.font_params, self.bounds.center(), true);
+        gfx.draw_string(&self.text, self.font_params, self.bounds.center(), true)?;
 
         Ok(())
     }

@@ -52,6 +52,8 @@ pub struct Game {
     game_rx: Option<mpsc::Receiver<GameMessage>>,
     player_tx: Option<mpsc::Sender<PlayerAction>>,
     game_state: Option<GameState>,
+
+    pub turn: usize,
 }
 
 impl Game {
@@ -133,7 +135,8 @@ impl Game {
                         p.can_raise = round != Round::Preflop;
                     }
                     if round >= Round::Preflop && round < Round::Complete {
-                        players[state.active_players[0]].turn = true;
+                        self.turn = state.active_players[0];
+                        players[self.turn].turn = true;
                     }
                 }
                 GameAction::DealCommunity { card } => {
@@ -149,23 +152,23 @@ impl Game {
                         player::PlayerAction::Fold => panic!("A fold is not a bet"),
                     }
 
-                    update_turn(&state, i, players);
+                    update_turn(&mut self.turn, &state, i, players);
                 }
                 GameAction::PlayedFolded { action, i } => {
                     match action {
                         player::PlayerAction::Fold => players[i].folded = true,
                         _ => panic!("A bet is not a fold"),
                     }
-                    update_turn(&state, i, players);
+                    update_turn(&mut self.turn, &state, i, players);
                 }
                 GameAction::ErroredPlay { error, i } => {
                     println!("{error}");
-                    update_turn(&state, i, players);
+                    update_turn(&mut self.turn, &state, i, players);
                 }
                 GameAction::ShowdownHand { hand, rank, i } => {
                     players[i].hand = Some(hand);
                     players[i].rank = Some(rank);
-                    update_turn(&state, i, players);
+                    update_turn(&mut self.turn, &state, i, players);
                 }
                 GameAction::WinGame { rank, i, pot } => {
                     players[i].turn = true;
@@ -249,26 +252,26 @@ impl Drawable for Game {
                         DEFAULT_FONT.derive_size(128).derive_color(Color::RED),
                         Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 - 50),
                         true,
-                    );
+                    )?;
                     gfx.draw_string(
                         &format!("Player {} won {}€", players[i].name, pot),
                         DEFAULT_FONT.derive_size(48),
                         Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 50),
                         true,
-                    );
+                    )?;
                 } else {
                     gfx.draw_string(
-                        "GAME OVER",
+                        "YOU WON",
                         DEFAULT_FONT.derive_size(128).derive_color(Color::GREEN),
                         Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 - 50),
                         true,
-                    );
+                    )?;
                     gfx.draw_string(
                         &format!("You have won {}€", pot),
                         DEFAULT_FONT.derive_size(48),
                         Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 50),
                         true,
-                    );
+                    )?;
                 }
 
                 gfx.draw_string(
@@ -276,7 +279,7 @@ impl Drawable for Game {
                     DEFAULT_FONT.derive_size(48),
                     Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 120),
                     true,
-                );
+                )?;
             }
         }
 
@@ -284,11 +287,15 @@ impl Drawable for Game {
     }
 }
 
-fn update_turn(state: &GameState, i: usize, players: &mut [PlayerState]) {
+fn update_turn(turn: &mut usize, state: &GameState, i: usize, players: &mut [PlayerState]) {
     players[i].turn = false;
-    if let Some(j) = state.active_players.iter().position(|&x| x == i) {
-        if j + 1 < state.active_players.len() {
-            players[state.active_players[j + 1]].turn = true;
+    *turn = i + 1;
+
+    while *turn < players.len() {
+        if !state.folded_players.contains(turn) && !state.players_all_in.contains(turn) {
+            players[*turn].turn = true;    
+            break;
         }
+        *turn += 1;
     }
 }

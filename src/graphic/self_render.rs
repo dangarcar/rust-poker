@@ -52,7 +52,7 @@ impl Drawable for SelfController {
                 DEFAULT_FONT.derive_size(36),
                 Point::new(250, self.bounds.y + 50),
                 false,
-            );
+            )?;
         }
 
         gfx.draw_string(
@@ -60,21 +60,14 @@ impl Drawable for SelfController {
             DEFAULT_FONT.derive_size(24),
             Point::new(250, self.bounds.y + 100),
             false,
-        );
+        )?;
 
         gfx.draw_string(
             &format!("Actual bet: {}€", self.state.bet),
             DEFAULT_FONT.derive_size(24),
             Point::new(250, self.bounds.y + 130),
             false,
-        );
-
-        /*gfx.draw_string(
-            &format!("Raise {}€ more", self.to_raise()),
-            DEFAULT_FONT.derive_size(24),
-            Point::new(250, self.bounds.y + 160),
-            false,
-        );*/
+        )?;
 
         if self.state.folded {
             gfx.draw_rect(self.bounds, Color::RGBA(0, 0, 0, 100))?;
@@ -90,7 +83,7 @@ impl Drawable for SelfController {
                 .derive_color(Color::RGB(52, 128, 31)),
             Point::new(WIDTH as i32 / 2, 100),
             true,
-        );
+        )?;
 
         Ok(())
     }
