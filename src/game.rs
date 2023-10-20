@@ -1,13 +1,13 @@
+use std::sync::atomic::AtomicBool;
 use std::sync::mpsc;
 use std::thread;
+use std::time::Duration;
 
 use itertools::Itertools;
 use rand::Rng;
+use rand::thread_rng;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
-use sdl2::rect::Point;
-use sdl2::rect::Rect;
 
 use crate::core::action::game_action::GameAction;
 use crate::core::action::mpsc_queue::MpscQueue;
@@ -21,18 +21,16 @@ use crate::core::rank::Rank;
 use crate::core::state::GameState;
 use crate::core::state::Round;
 use crate::game::player_state::PlayerAction;
-use crate::graphic::font::DEFAULT_FONT;
-use crate::graphic::ui;
-use crate::graphic::ui_component::Drawable;
 use crate::graphic::ui_component::EventReceiver;
-use crate::graphic::SDL2Graphics;
-use crate::graphic::HEIGHT;
-use crate::graphic::WIDTH;
+use crate::graphic::{DEAL_DELAY, PLAY_DELAY, START_DELAY, SHOWDOWN_DELAY, ui};
 
 use self::player_state::PlayerState;
 
 pub mod player_state;
 pub mod self_controller;
+pub mod game_render;
+
+pub static DEBUG: AtomicBool = AtomicBool::new(false);
 
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum GamePhase {
@@ -40,6 +38,7 @@ pub enum GamePhase {
     Start,
     Playing,
     Pause,
+    Showdown(usize),
     Ended(Rank, usize, i32),
 }
 
@@ -53,13 +52,15 @@ pub struct Game {
     player_tx: Option<mpsc::Sender<PlayerAction>>,
     game_state: Option<GameState>,
 
-    pub turn: usize,
+    pub delay: Duration,
+    turn: usize,
 }
 
 impl Game {
     //TODO: New players that aren't default
     pub fn new(default_players: bool) -> Self {
         let mut game = Game::default();
+        game.turn = usize::MAX;
 
         if default_players {
             game.default_players();
@@ -70,23 +71,50 @@ impl Game {
 
     pub fn early_update(&mut self) {
         if let Some(state) = &self.game_state {
-            self.ui.player_controller.early_update(state);
+            if !state.folded_players.contains(&self.myself) && !state.players_all_in.contains(&self.myself) {
+                self.ui.player_controller.early_update(state);
+            }
         }
     }
 
-    pub fn update(&mut self) {
-        if let Some(rx) = &self.game_rx {
-            if let Ok(msg) = rx.try_recv() {
-                self.update_player_state(msg);
+    pub fn update(&mut self, delta: &Duration) {
+        if !self.delay.is_zero() {
+            if self.delay <= *delta {
+                self.delay = Duration::ZERO;
+                self.on_delay_ended();
+            } else {
+                self.delay -= *delta;
             }
+
+            return;
         }
 
-        if let Some(player_states) = &self.players {
-            self.ui.update_states(player_states, self.myself);
+        match self.phase {
+            GamePhase::Start => self.phase = GamePhase::Playing,
+            GamePhase::Playing => {
+                if let Some(rx) = &self.game_rx {
+                    if let Ok(msg) = rx.try_recv() {
+                        self.update_player_state(msg);
+                    }
+                }
+
+                if let Some(player_states) = &mut self.players {
+                    self.ui.update_states(player_states, self.myself);
+                }
+
+                if let Some(state) = &self.game_state {
+                    self.ui.community.pot = state.players_bet.iter().sum();
+                }
+            }
+            GamePhase::Showdown(..) => {}
+            GamePhase::Pause => {}
+            GamePhase::Ended(..) => {}
         }
     }
 
     pub fn start(&mut self) {
+        self.delay = START_DELAY;
+
         let (game_tx, game_rx) = mpsc::channel();
         self.game_rx = Some(game_rx);
 
@@ -120,8 +148,18 @@ impl Game {
         }
     }
 
+    fn on_delay_ended(&mut self) {
+        if let GamePhase::Showdown(..) = self.phase {
+            self.phase = GamePhase::Playing;
+        }
+        else if let (Some(players), Some(state))= (&mut self.players, &self.game_state) {
+            update_turn(&mut self.turn, state, players);
+        }
+    }
+
     fn update_player_state(&mut self, msg: GameMessage) {
         let state = msg.state;
+        let mut rng = thread_rng();
 
         if let Some(players) = &mut self.players {
             match msg.action {
@@ -135,12 +173,19 @@ impl Game {
                         p.can_raise = round != Round::Preflop;
                     }
                     if round >= Round::Preflop && round < Round::Complete {
-                        self.turn = state.active_players[0];
-                        players[self.turn].turn = true;
+                        self.turn = 0;
+                        while self.turn < players.len() {
+                            if !state.folded_players.contains(&self.turn) && !state.players_all_in.contains(&self.turn) {
+                                players[self.turn].turn = true;
+                                break;
+                            }
+                            self.turn += 1;
+                        }
                     }
                 }
                 GameAction::DealCommunity { card } => {
                     self.ui.community.add_card(card);
+                    self.delay = DEAL_DELAY;
                 }
                 GameAction::PlayedBet { action, i, all_in } => {
                     match action {
@@ -152,23 +197,32 @@ impl Game {
                         player::PlayerAction::Fold => panic!("A fold is not a bet"),
                     }
 
-                    update_turn(&mut self.turn, &state, i, players);
+                    self.turn = i;
+                    self.delay = PLAY_DELAY.mul_f32(rng.gen_range(0.5..=1.0));
                 }
                 GameAction::PlayedFolded { action, i } => {
                     match action {
                         player::PlayerAction::Fold => players[i].folded = true,
                         _ => panic!("A bet is not a fold"),
                     }
-                    update_turn(&mut self.turn, &state, i, players);
+                    
+                    self.turn = i;
+                    self.delay = PLAY_DELAY.mul_f32(rng.gen_range(0.5..=1.0));
                 }
                 GameAction::ErroredPlay { error, i } => {
                     println!("{error}");
-                    update_turn(&mut self.turn, &state, i, players);
+
+                    self.turn = i;
+                    self.delay = PLAY_DELAY.mul_f32(rng.gen_range(0.5..=1.0));
                 }
                 GameAction::ShowdownHand { hand, rank, i } => {
                     players[i].hand = Some(hand);
                     players[i].rank = Some(rank);
-                    update_turn(&mut self.turn, &state, i, players);
+
+                    self.turn = i;
+                    update_turn(&mut self.turn, &state, players);
+                    self.phase = GamePhase::Showdown(i);
+                    self.delay = SHOWDOWN_DELAY;
                 }
                 GameAction::WinGame { rank, i, pot } => {
                     players[i].turn = true;
@@ -189,7 +243,7 @@ impl Game {
             self.players.as_mut().unwrap().push(PlayerState {
                 name: format!("Player{}", i + 1),
                 bet: 0,
-                cash: 1000,
+                cash: 100000,
                 hand: None,
                 rank: None,
                 can_raise: false,
@@ -201,6 +255,10 @@ impl Game {
 
         self.myself = rng.gen_range(0..max_p);
         self.players.as_mut().unwrap()[self.myself].name = "Me".to_string();
+    }
+
+    pub fn is_running(&self) -> bool {
+        self.phase == GamePhase::Playing
     }
 }
 
@@ -222,7 +280,10 @@ impl EventReceiver<Result<(), String>> for Game {
                         self.phase = GamePhase::Pause;
                     }
                 }
-                Keycode::A => println!("A pressed"),
+                Keycode::D => {
+                    let d = !DEBUG.load(std::sync::atomic::Ordering::Relaxed);
+                    DEBUG.store(d, std::sync::atomic::Ordering::Relaxed);
+                },
                 _ => (),
             },
             _ => {}
@@ -238,62 +299,13 @@ impl EventReceiver<Result<(), String>> for Game {
     }
 }
 
-impl Drawable for Game {
-    fn draw(&self, gfx: &mut SDL2Graphics) -> Result<(), String> {
-        self.ui.draw(gfx)?;
-
-        if let GamePhase::Ended(rank, i, pot) = self.phase {
-            gfx.draw_rect(Rect::new(0, 0, WIDTH, HEIGHT), Color::RGBA(0, 0, 0, 200))?;
-
-            if let Some(players) = &self.players {
-                if i != self.myself {
-                    gfx.draw_string(
-                        "GAME OVER",
-                        DEFAULT_FONT.derive_size(128).derive_color(Color::RED),
-                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 - 50),
-                        true,
-                    )?;
-                    gfx.draw_string(
-                        &format!("Player {} won {}€", players[i].name, pot),
-                        DEFAULT_FONT.derive_size(48),
-                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 50),
-                        true,
-                    )?;
-                } else {
-                    gfx.draw_string(
-                        "YOU WON",
-                        DEFAULT_FONT.derive_size(128).derive_color(Color::GREEN),
-                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 - 50),
-                        true,
-                    )?;
-                    gfx.draw_string(
-                        &format!("You have won {}€", pot),
-                        DEFAULT_FONT.derive_size(48),
-                        Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 50),
-                        true,
-                    )?;
-                }
-
-                gfx.draw_string(
-                    &format!("Rank: {:?}", rank),
-                    DEFAULT_FONT.derive_size(48),
-                    Point::new(WIDTH as i32 / 2, HEIGHT as i32 / 2 + 120),
-                    true,
-                )?;
-            }
-        }
-
-        Ok(())
-    }
-}
-
-fn update_turn(turn: &mut usize, state: &GameState, i: usize, players: &mut [PlayerState]) {
-    players[i].turn = false;
-    *turn = i + 1;
+fn update_turn(turn: &mut usize, state: &GameState, players: &mut [PlayerState]) {
+    players[*turn].turn = false;
+    if *turn < players.len() { *turn += 1; }
 
     while *turn < players.len() {
         if !state.folded_players.contains(turn) && !state.players_all_in.contains(turn) {
-            players[*turn].turn = true;    
+            players[*turn].turn = true;
             break;
         }
         *turn += 1;

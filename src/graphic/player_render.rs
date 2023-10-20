@@ -3,13 +3,9 @@ use sdl2::{
     rect::{Point, Rect},
 };
 
-use crate::game::player_state::PlayerState;
+use crate::game::{player_state::PlayerState, game_render::{rect_card_spritesheet, CARD_SPRITE_RATIO}};
 
-use super::{
-    font::DEFAULT_FONT,
-    self_render::{rect_card_spritesheet, CARD_SPRITE_RATIO},
-    ui_component::Drawable,
-};
+use super::{font::DEFAULT_FONT, ui_component::Drawable};
 
 pub struct PlayerRenderer {
     bounds: Rect,
@@ -31,6 +27,27 @@ impl PlayerRenderer {
 
     pub fn set_state(&mut self, state: PlayerState) {
         self.state = state;
+    }
+
+    fn draw_hand(&self, gfx: &mut super::SDL2Graphics<'_>) -> Result<(), String> {
+        Ok(if let Some(tex) = gfx.tex_cache.get("CARD") {
+            let w = 52;
+            let h = (w as f32 * CARD_SPRITE_RATIO) as i32;
+
+            let p = self.bounds.bottom_right().offset(-w - 10, -h - 10);
+            gfx.canvas.copy(
+                tex,
+                rect_card_spritesheet(self.state.hand.map(|hand| hand.0)),
+                Rect::new(p.x, p.y, w as u32, h as u32),
+            )?;
+
+            let p = p.offset(-w - 10, 0);
+            gfx.canvas.copy(
+                tex,
+                rect_card_spritesheet(self.state.hand.map(|hand| hand.1)),
+                Rect::new(p.x, p.y, w as u32, h as u32),
+            )?;
+        })
     }
 }
 
@@ -60,24 +77,7 @@ impl Drawable for PlayerRenderer {
             false,
         )?;
 
-        if let Some(tex) = gfx.tex_cache.get("CARD") {
-            let w = 52;
-            let h = (w as f32 * CARD_SPRITE_RATIO) as i32;
-
-            let p = self.bounds.bottom_right().offset(-w - 10, -h - 10);
-            gfx.canvas.copy(
-                tex,
-                rect_card_spritesheet(self.state.hand.map(|hand| hand.0)),
-                Rect::new(p.x, p.y, w as u32, h as u32),
-            )?;
-
-            let p = p.offset(-w - 10, 0);
-            gfx.canvas.copy(
-                tex,
-                rect_card_spritesheet(self.state.hand.map(|hand| hand.1)),
-                Rect::new(p.x, p.y, w as u32, h as u32),
-            )?;
-        }
+        self.draw_hand(gfx)?;
 
         if self.state.folded {
             gfx.draw_rect(self.bounds, Color::RGBA(0, 0, 0, 180))?;

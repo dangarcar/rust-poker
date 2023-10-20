@@ -3,13 +3,9 @@ use sdl2::{
     rect::{Point, Rect},
 };
 
-use crate::{core::card, game::self_controller::SelfController};
+use crate::game::{self_controller::SelfController, game_render::{CARD_SPRITE_RATIO, rect_card_spritesheet}};
 
 use super::{button::ButtonColor, font::DEFAULT_FONT, ui_component::Drawable, WIDTH};
-
-pub const CARD_SPRITE_RATIO: f32 = SPRITE_HEIGHT as f32 / SPRITE_WIDTH as f32;
-const SPRITE_WIDTH: u32 = 200;
-const SPRITE_HEIGHT: u32 = 291;
 
 pub const RAISE_COLOR: ButtonColor = ButtonColor {
     color: Color::RGB(76, 189, 45),
@@ -72,18 +68,18 @@ impl Drawable for SelfController {
         if self.state.folded {
             gfx.draw_rect(self.bounds, Color::RGBA(0, 0, 0, 100))?;
         }
+        else {
+            gfx.draw_string(
+                &format!("Call amount: {}€", self.diff + self.to_raise()),
+                DEFAULT_FONT
+                    .derive_size(72)
+                    .derive_color(Color::RGB(52, 128, 31)),
+                Point::new(WIDTH as i32 / 2, 100),
+                true,
+            )?;
+        }
 
         self.draw_hand(gfx)?;
-
-        let t = format!("Call amount: {}€", self.diff + self.to_raise());
-        gfx.draw_string(
-            &t,
-            DEFAULT_FONT
-                .derive_size(72)
-                .derive_color(Color::RGB(52, 128, 31)),
-            Point::new(WIDTH as i32 / 2, 100),
-            true,
-        )?;
 
         Ok(())
     }
@@ -107,33 +103,5 @@ impl SelfController {
         }
 
         Ok(())
-    }
-}
-
-pub fn rect_card_spritesheet(card: Option<card::Card>) -> Rect {
-    match card {
-        Some(card) => {
-            let x_offset = {
-                if card.value == card::Value::Ace {
-                    0
-                } else {
-                    card.value as i32 + 1
-                }
-            };
-            let y_offset = card.suit as i32;
-
-            Rect::new(
-                (x_offset % 13) * SPRITE_WIDTH as i32,
-                y_offset * SPRITE_HEIGHT as i32,
-                SPRITE_WIDTH,
-                SPRITE_HEIGHT,
-            )
-        }
-        None => Rect::new(
-            2 * SPRITE_WIDTH as i32,
-            4 * SPRITE_HEIGHT as i32,
-            SPRITE_WIDTH,
-            SPRITE_HEIGHT,
-        ),
     }
 }

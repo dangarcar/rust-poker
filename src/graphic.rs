@@ -1,5 +1,5 @@
 extern crate sdl2;
-use std::{collections::HashMap, path::Path};
+use std::{collections::HashMap, path::Path, time::Duration};
 
 use sdl2::{
     image::LoadTexture,
@@ -31,12 +31,13 @@ pub const TEXTURE_PATHS: [(&str, &str); 3] = [
     ("CARD","assets/cards.png"),
     ("TITLE","assets/title-screen.jpg"),
 ];
-pub const FONTS: [FontParams; 9] = [
+pub const FONTS: [FontParams; 10] = [
     DEFAULT_FONT,
     DEFAULT_FONT.derive_size(24),
     DEFAULT_FONT.derive_size(36),
     DEFAULT_FONT.derive_size(48),
     DEFAULT_FONT.derive_size(72),
+    DEFAULT_FONT.derive_size(128),
     DEFAULT_FONT.derive_color(Color::GREEN),
     DEFAULT_FONT
         .derive_size(72)
@@ -46,6 +47,11 @@ pub const FONTS: [FontParams; 9] = [
 ];
 
 pub const CHARACTERS: &str = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!\"#%&'()*+,-./:;<=>?[\\]^_{|}~€$";
+
+pub const START_DELAY: Duration = Duration::from_millis(1000);
+pub const PLAY_DELAY: Duration = Duration::from_millis(1000);
+pub const DEAL_DELAY: Duration = Duration::from_millis(300);
+pub const SHOWDOWN_DELAY: Duration = Duration::from_millis(1000);
 
 pub struct SDL2Graphics<'a> {
     pub canvas: WindowCanvas,
@@ -80,15 +86,7 @@ impl<'a> SDL2Graphics<'a> {
         gfx
     }
 
-    pub fn start(
-        &mut self,
-        creator: &'a TextureCreator<WindowContext>,
-    ) -> Result<(), String> {
-        //Draw load screen
-        if let Some(bg) = self.tex_cache.get("TITLE") {
-            self.canvas.copy(bg, None, None)?;
-        }
-
+    pub fn start(&mut self, creator: &'a TextureCreator<WindowContext>) -> Result<(), String> {
         //Load fonts
         for params in FONTS {
             self.load_font(creator, params)?;

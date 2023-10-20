@@ -109,7 +109,7 @@ impl SelfController {
     }
 
     pub fn to_raise(&self) -> i32 {
-        (self.slider.value() * self.state.cash as f32) as i32
+        (self.slider.value() * (self.state.cash - self.diff) as f32) as i32
     }
 
     pub fn early_update(&mut self, state: &GameState) {

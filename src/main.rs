@@ -1,9 +1,9 @@
 extern crate sdl2;
 
 use std::path::Path;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
-use poker::game::Game;
+use poker::game::{Game, DEBUG};
 use poker::graphic;
 use poker::graphic::font::DEFAULT_FONT;
 use poker::graphic::ui_component::{Drawable, EventReceiver};
@@ -11,8 +11,6 @@ use poker::graphic::ui_component::{Drawable, EventReceiver};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::rect::Point;
-
-const DEBUG: bool = true;
 
 fn main() {
     env_logger::init();
@@ -43,12 +41,14 @@ fn main() {
     //Load textures and construct gfx
     let creator = canvas.texture_creator();
     let mut gfx = graphic::SDL2Graphics::new(canvas, ttf, font_path, &creator);
-    gfx.start(&creator).expect("Cannot load fonts in a cache");
 
     let mut game = Game::new(true);
     game.start();
+    game.draw(&mut gfx).ok();
 
     let mut time = (0u128, 0i32, 0u128);
+    let mut delta = Duration::ZERO;
+    gfx.start(&creator).expect("Cannot load fonts in a cache");
 
     let mut event_pump = sdl_context
         .event_pump()
@@ -72,18 +72,20 @@ fn main() {
         }
 
         //Internal structure update
-        game.update();
+        game.update(&delta);
 
         // Graphic update
-        gfx.clear().ok();
         game.draw(&mut gfx).ok();
-        if DEBUG { draw_time_elapsed(&mut gfx, time); }
-        gfx.show();
+        if DEBUG.load(std::sync::atomic::Ordering::Relaxed) && game.is_running() {
+            draw_time_elapsed(&mut gfx, time);
+            gfx.show();
+        }
 
         time.2 = t.elapsed().as_nanos();
         time.0 = time.0 * time.1 as u128 + time.2;
         time.1 += 1;
         time.0 /= time.1 as u128;
+        delta = t.elapsed();
     }
 }
 

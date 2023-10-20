@@ -51,24 +51,27 @@ impl UI {
         myself: usize,
     ) -> Result<(), EngineError> {
         let mut places = vec![
-            Point::new(1520, 540),
-            Point::new(400, 540),
-            Point::new(1420, 770),
             Point::new(500, 770),
-            Point::new(1420, 300),
+            Point::new(400, 540),
             Point::new(500, 300),
             Point::new(960, 250),
+            Point::new(1420, 300),
+            Point::new(1520, 540),
+            Point::new(1420, 770),
         ];
 
-        for (i, p) in player_states.iter().enumerate() {
-            if i == myself {
-                self.player_controller.set_state(p.clone());
-            } else {
-                let v =
-                    PlayerRenderer::new(places.pop().ok_or(EngineError::BadGameError)?, p.clone());
-                self.players.insert(i, v);
-            }
+        for i in (0..myself).rev() {
+            let place = places.remove(0);
+            let v = PlayerRenderer::new(place, player_states[i].clone());
+            self.players.insert(i, v);
         }
+        for i in (myself+1)..player_states.len() {
+            let place = places.remove(places.len()-1);
+            let v = PlayerRenderer::new(place, player_states[i].clone());
+            self.players.insert(i, v);
+        }
+
+        self.player_controller.set_state(player_states[myself].clone());
 
         Ok(())
     }
