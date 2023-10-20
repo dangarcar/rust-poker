@@ -264,10 +264,6 @@ impl Game {
 
 impl EventReceiver<Result<(), String>> for Game {
     fn handle_event(&mut self, event: &Event) -> Result<(), String> {
-        if let GamePhase::Ended(..) = self.phase {
-            return Ok(());
-        }
-
         #[allow(clippy::single_match)]
         match event {
             Event::KeyDown {
@@ -284,9 +280,37 @@ impl EventReceiver<Result<(), String>> for Game {
                     let d = !DEBUG.load(std::sync::atomic::Ordering::Relaxed);
                     DEBUG.store(d, std::sync::atomic::Ordering::Relaxed);
                 },
+                Keycode::Return => {
+                    if let (GamePhase::Ended(_, idx, pot), Some(players)) = (self.phase, &mut self.players) {
+                        self.game_state = None;
+                        for (i, p) in players.iter_mut().enumerate() {
+                            p.bet = 0;
+                            p.cash = if p.cash <= 0 {1} else {p.cash};
+                            p.hand = None;
+                            p.rank = None;
+                            p.can_raise = false;
+                            p.folded = false;
+                            p.all_in = false;
+                            p.turn = false;
+                            for c in &mut self.ui.community.cards {
+                                *c = None;
+                            }
+
+                            if i == idx {
+                                p.cash += pot;
+                            }
+                        }
+                        self.phase = GamePhase::Start;
+                        self.start();
+                    }
+                }
                 _ => (),
             },
             _ => {}
+        }
+
+        if let GamePhase::Ended(..) = self.phase {
+            return Ok(());
         }
 
         if let Some(act) = self.ui.handle_event(event)? {

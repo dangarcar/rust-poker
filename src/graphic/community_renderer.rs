@@ -10,7 +10,7 @@ use super::{ui_component::Drawable, HEIGHT, WIDTH};
 
 #[derive(Default)]
 pub struct CommunityRenderer {
-    cards: [Option<Card>; 5],
+    pub cards: [Option<Card>; 5],
     pub pot: i32,
 }
 
